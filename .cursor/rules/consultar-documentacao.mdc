@@ -1,0 +1,38 @@
+---
+description: Consultar documentação do projeto antes de implementar ou decidir arquitetura
+alwaysApply: true
+---
+
+# Documentação do Projeto — Consulta Obrigatória
+
+Antes de implementar, refatorar ou tomar decisões arquiteturais, **leia a documentação relevante**.
+
+## Ordem de consulta
+
+1. **`docs/requisitos-funcionais-nao-funcionais.md`** — baseline do edital (RF/RNF)
+2. **`docs/SDD.md`** — contratos da API, modelos, stack, rastreabilidade
+3. **`docs/arquitetura.md`** — camadas, padrões adotados/descartados, CQRS leve
+4. **`README.md`** — setup, scripts, variáveis de ambiente
+
+## Quando consultar
+
+- Início de qualquer tarefa nova (feature, endpoint, módulo)
+- Dúvida sobre o que **implementar** vs **documentar** vs **descartar**
+- Antes de introduzir um padrão (events, use cases, abstrações extras)
+- Ao alterar contratos de API, schema Prisma ou fluxo PG ↔ OpenSearch
+
+## Regras
+
+- Não contradizer decisões já registradas sem explicitar o motivo ao usuário
+- Se a doc estiver desatualizada após uma mudança, **propor atualização** dos docs afetados
+- Preferir o que está em `docs/arquitetura.md` sobre padrões genéricos de DDD/Clean Architecture
+
+## Referência rápida de decisões
+
+| Tópico | Decisão |
+|--------|---------|
+| Orquestração | `ArticlesService` direto |
+| Leitura | CQRS leve: PG (listagem) / OpenSearch (`q`) |
+| Domain Events | Não adotado |
+| Outbox/SQS | Infra LocalStack ✅; worker só em prod |
+| Status na doc | ✅ feito · 🔜 pendente · 📄 só documentado |

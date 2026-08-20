@@ -1,0 +1,37 @@
+---
+description: Padrões NestJS com Fastify para este projeto
+globs: src/**/*.ts
+alwaysApply: false
+---
+
+# NestJS + Fastify
+
+## Controllers
+- Apenas delegam para `ArticlesService`
+- Usar DTOs com `class-validator` para entrada
+- Retornar DTOs de resposta, nunca entidades de domínio cruas
+
+```typescript
+@Controller('articles')
+export class ArticlesController {
+  constructor(private readonly articlesService: ArticlesService) {}
+
+  @Post()
+  @UseGuards(ApiKeyGuard)
+  create(@Body() dto: CreateArticleDto) {
+    return this.articlesService.create(dto);
+  }
+}
+```
+
+## Injeção de dependência
+- Registrar ports com `Symbol` tokens no module
+- `PrismaModule` é `@Global()` em `src/prisma/` (hoje); destino futuro: `shared/infrastructure/prisma/`
+
+## Configuração
+- Variáveis sensíveis via `ConfigModule` / `ConfigService`
+- Nunca hardcodar secrets
+
+## Erros
+- `DomainExceptionFilter` global para exceções de domínio
+- Respostas padronizadas: `{ error: { code, message, statusCode } }`

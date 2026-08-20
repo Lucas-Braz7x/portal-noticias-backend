@@ -1,0 +1,50 @@
+---
+description: Convenções DDD e estrutura de módulos
+globs: src/**/*.ts
+alwaysApply: false
+---
+
+# DDD — Estrutura de Módulos
+
+## Pastas por bounded context (`modules/articles/`)
+```
+presentation/   → controllers, DTOs, guards
+application/    → ArticlesService (orquestração direta)
+domain/         → entities, value objects, repository interfaces, exceptions
+infrastructure/ → repository implementations, mappers, clients externos
+```
+
+## Entidades e Value Objects
+```typescript
+// ✅ Entity com factory method e validação interna
+class Article {
+  static create(props: CreateArticleProps): Article { ... }
+  update(props: UpdateArticleProps): void { ... }
+}
+
+// ✅ Value Object imutável
+class Slug {
+  private constructor(private readonly value: string) {}
+  static create(raw: string): Slug { ... }
+}
+```
+
+## Repository (port no domínio, adapter na infra)
+```typescript
+// domain/repositories/article.repository.ts
+export const ARTICLE_REPOSITORY = Symbol('ARTICLE_REPOSITORY');
+export interface IArticleRepository { ... }
+
+// infrastructure/repositories/prisma-article.repository.ts
+@Injectable()
+export class PrismaArticleRepository implements IArticleRepository { ... }
+```
+
+## O que NÃO usar neste projeto
+- Domain Events — orquestração direta no `ArticlesService`
+- Use case por endpoint — um service basta para o escopo
+- Controllers acessando Prisma/OpenSearch diretamente
+
+## Domain Exceptions
+- Lançar exceções de domínio (`ArticleNotFoundException`)
+- Mapear para HTTP em `shared/presentation/filters/`

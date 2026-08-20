@@ -1,0 +1,37 @@
+---
+description: Convenções de testes e TDD
+globs: "**/*.{spec,test}.ts"
+alwaysApply: false
+---
+
+# TDD e Testes
+
+## Ciclo obrigatório
+1. **Red** — escrever teste que falha
+2. **Green** — implementar o mínimo para passar
+3. **Refactor** — melhorar sem quebrar testes
+
+## Pirâmide
+- **Unitários** (`*.spec.ts` ao lado do arquivo): domínio e ArticlesService com mocks
+- **Integração** (`test/integration/`): repositórios com banco real (testcontainers)
+- **E2E** (`test/e2e/`): fluxos HTTP completos
+
+## Convenções
+```typescript
+describe('ArticlesService', () => {
+  it('should persist article and index in search on create', async () => {
+    const articles = { save: jest.fn().mockResolvedValue(article) };
+    const search = { index: jest.fn() };
+    // arrange → act → assert
+  });
+});
+```
+
+## O que testar
+- Regras de domínio (validações, factory methods)
+- Orquestração do ArticlesService (chamadas aos ports)
+- Mapeamento de exceções de domínio para HTTP
+
+## O que mockar
+- Repositórios e clientes externos nos testes do ArticlesService
+- Nunca mockar a lógica de domínio em testes unitários de entidade

@@ -1,0 +1,35 @@
+---
+description: Padrões gerais do projeto portal-noticias-backend
+alwaysApply: true
+---
+
+# Padrões do Projeto
+
+## Stack
+- NestJS 11 + Fastify (não Express)
+- Prisma + PostgreSQL
+- TypeScript strict
+- Prefixo global: `api/v1`
+
+## Princípios obrigatórios
+- **DDD pragmático**: domínio isolado de frameworks e ORM
+- **Clean Code**: funções pequenas, nomes expressivos, SRP
+- **TDD**: escrever teste antes da implementação (Red → Green → Refactor)
+- **Repository**: persistência via interfaces no domínio
+- **ArticlesService**: orquestração direta; regras de negócio ficam nas entidades
+- **CQRS leve**: PG para listagem/filtros; OpenSearch para busca textual (`q`)
+
+## O que evitar
+- Domain Events, event bus, use case por endpoint
+- Abstrações sem regra de negócio por trás
+
+## Regras de dependência
+- `domain/` não importa de `infrastructure/` nem de `@nestjs/*`
+- Controllers não acessam Prisma ou OpenSearch diretamente
+- DTOs na camada `presentation/`; entidades na camada `domain/`
+- Mappers convertem entre modelos de persistência e entidades
+
+## Ao implementar
+1. Consultar `docs/requisitos-funcionais-nao-funcionais.md`, `docs/SDD.md` e `docs/arquitetura.md`
+2. Criar teste → implementar → refatorar
+3. Manter diff mínimo e focado no escopo pedido
