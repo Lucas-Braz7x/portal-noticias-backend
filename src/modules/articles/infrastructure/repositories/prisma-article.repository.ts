@@ -32,6 +32,39 @@ export class PrismaArticleRepository implements IArticleRepository {
     return article ? ArticleMapper.toDomain(article) : null;
   }
 
+  async findByIds(
+    ids: string[],
+    publishedOnly = true,
+  ): Promise<Article[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    const where: Prisma.ArticleWhereInput = {
+      id: { in: ids },
+    };
+
+    if (publishedOnly) {
+      where.publishedAt = {
+        not: null,
+        lte: new Date(),
+      };
+    }
+
+    const articles = await this.prisma.article.findMany({
+      where,
+      include: articleInclude,
+    });
+
+    const articleMap = new Map(
+      articles.map((article) => [article.id, article]),
+    );
+
+    return ids
+      .filter((id) => articleMap.has(id))
+      .map((id) => ArticleMapper.toDomain(articleMap.get(id)!));
+  }
+
   async findMany(
     params: ListArticlesParams,
   ): Promise<PaginatedResult<Article>> {

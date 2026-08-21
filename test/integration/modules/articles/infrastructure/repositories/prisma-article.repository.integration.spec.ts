@@ -80,6 +80,114 @@ describe('PrismaArticleRepository (integration)', () => {
     expect(result.data).toHaveLength(0);
   });
 
+  it('findMany excludes drafts and future articles by default', async () => {
+    const prisma = getTestPrisma();
+    const { author, category, tags } = await seedArticleRefs(prisma);
+
+    const published = Article.create({
+      title: 'Publicado',
+      summary: 'Resumo',
+      content: 'Conteúdo',
+      author,
+      category,
+      tags,
+      publishedAt: new Date('2026-01-01T00:00:00Z'),
+    });
+    const draft = Article.create({
+      title: 'Rascunho',
+      summary: 'Resumo',
+      content: 'Conteúdo',
+      author,
+      category,
+      tags,
+    });
+    const scheduled = Article.create({
+      title: 'Agendado',
+      summary: 'Resumo',
+      content: 'Conteúdo',
+      author,
+      category,
+      tags,
+      publishedAt: new Date('2099-01-01T00:00:00Z'),
+    });
+
+    await repository.save(published);
+    await repository.save(draft);
+    await repository.save(scheduled);
+
+    const result = await repository.findMany({ page: 1, limit: 10 });
+
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].slug).toBe(published.slug);
+    expect(result.meta.total).toBe(1);
+  });
+
+  it('findByIds returns articles preserving OpenSearch relevance order', async () => {
+    const prisma = getTestPrisma();
+    const { author, category, tags } = await seedArticleRefs(prisma);
+
+    const first = Article.create({
+      title: 'Primeiro',
+      summary: 'Resumo',
+      content: 'Conteúdo',
+      author,
+      category,
+      tags,
+      publishedAt: new Date('2026-01-01T00:00:00Z'),
+    });
+    const second = Article.create({
+      title: 'Segundo',
+      summary: 'Resumo',
+      content: 'Conteúdo',
+      author,
+      category,
+      tags,
+      publishedAt: new Date('2026-01-02T00:00:00Z'),
+    });
+
+    await repository.save(first);
+    await repository.save(second);
+
+    const result = await repository.findByIds([second.id, first.id], true);
+
+    expect(result.map((article) => article.id)).toEqual([second.id, first.id]);
+  });
+
+  it('findByIds excludes unpublished articles when publishedOnly is true', async () => {
+    const prisma = getTestPrisma();
+    const { author, category, tags } = await seedArticleRefs(prisma);
+
+    const published = Article.create({
+      title: 'Publicado',
+      summary: 'Resumo',
+      content: 'Conteúdo',
+      author,
+      category,
+      tags,
+      publishedAt: new Date('2026-01-01T00:00:00Z'),
+    });
+    const draft = Article.create({
+      title: 'Rascunho',
+      summary: 'Resumo',
+      content: 'Conteúdo',
+      author,
+      category,
+      tags,
+    });
+
+    await repository.save(published);
+    await repository.save(draft);
+
+    const result = await repository.findByIds([draft.id, published.id], true);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe(published.id);
+  });
+
+  it('findByIds returns empty array when ids is empty', async () => {
+    await expect(repository.findByIds([])).resolves.toEqual([]);
+  });
+
   it('findMany filters by category and tag slugs', async () => {
     const prisma = getTestPrisma();
     const { author, tags } = await seedArticleRefs(prisma);
