@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { Article } from '../../domain/entities/article.entity';
+import { DuplicateSlugException } from '../../domain/exceptions/duplicate-slug.exception';
 import {
   IArticleRepository,
   ListArticlesParams,
@@ -23,6 +24,15 @@ const articleInclude = {
 export class PrismaArticleRepository implements IArticleRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  async findById(id: string): Promise<Article | null> {
+    const article = await this.prisma.article.findUnique({
+      where: { id },
+      include: articleInclude,
+    });
+
+    return article ? ArticleMapper.toDomain(article) : null;
+  }
+
   async findBySlug(slug: string): Promise<Article | null> {
     const article = await this.prisma.article.findUnique({
       where: { slug },
@@ -32,10 +42,7 @@ export class PrismaArticleRepository implements IArticleRepository {
     return article ? ArticleMapper.toDomain(article) : null;
   }
 
-  async findByIds(
-    ids: string[],
-    publishedOnly = true,
-  ): Promise<Article[]> {
+  async findByIds(ids: string[], publishedOnly = true): Promise<Article[]> {
     if (ids.length === 0) {
       return [];
     }
@@ -94,37 +101,10 @@ export class PrismaArticleRepository implements IArticleRepository {
   }
 
   async save(article: Article): Promise<Article> {
-    const created = await this.prisma.article.create({
-      data: {
-        id: article.id,
-        title: article.title,
-        slug: article.slug,
-        summary: article.summary,
-        content: article.content,
-        publishedAt: article.publishedAt,
-        authorId: article.author.id,
-        categoryId: article.category.id,
-        articleTags: {
-          create: article.tags.map((tag) => ({
-            tagId: tag.id,
-          })),
-        },
-      },
-      include: articleInclude,
-    });
-
-    return ArticleMapper.toDomain(created);
-  }
-
-  async update(article: Article): Promise<Article> {
-    const updated = await this.prisma.$transaction(async (tx) => {
-      await tx.articleTag.deleteMany({
-        where: { articleId: article.id },
-      });
-
-      return tx.article.update({
-        where: { id: article.id },
+    try {
+      const created = await this.prisma.article.create({
         data: {
+          id: article.id,
           title: article.title,
           slug: article.slug,
           summary: article.summary,
@@ -140,9 +120,44 @@ export class PrismaArticleRepository implements IArticleRepository {
         },
         include: articleInclude,
       });
-    });
 
-    return ArticleMapper.toDomain(updated);
+      return ArticleMapper.toDomain(created);
+    } catch (error) {
+      this.rethrowDuplicateSlug(error, article.slug);
+    }
+  }
+
+  async update(article: Article): Promise<Article> {
+    try {
+      const updated = await this.prisma.$transaction(async (tx) => {
+        await tx.articleTag.deleteMany({
+          where: { articleId: article.id },
+        });
+
+        return tx.article.update({
+          where: { id: article.id },
+          data: {
+            title: article.title,
+            slug: article.slug,
+            summary: article.summary,
+            content: article.content,
+            publishedAt: article.publishedAt,
+            authorId: article.author.id,
+            categoryId: article.category.id,
+            articleTags: {
+              create: article.tags.map((tag) => ({
+                tagId: tag.id,
+              })),
+            },
+          },
+          include: articleInclude,
+        });
+      });
+
+      return ArticleMapper.toDomain(updated);
+    } catch (error) {
+      this.rethrowDuplicateSlug(error, article.slug);
+    }
   }
 
   async existsBySlug(slug: string): Promise<boolean> {
@@ -151,6 +166,17 @@ export class PrismaArticleRepository implements IArticleRepository {
     });
 
     return count > 0;
+  }
+
+  private rethrowDuplicateSlug(error: unknown, slug: string): never {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      throw new DuplicateSlugException(slug);
+    }
+
+    throw error;
   }
 
   private buildWhereClause(

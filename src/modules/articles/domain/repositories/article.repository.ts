@@ -21,6 +21,7 @@ export interface PaginatedResult<T> {
 export const ARTICLE_REPOSITORY = Symbol('ARTICLE_REPOSITORY');
 
 export interface IArticleRepository {
+  findById(id: string): Promise<Article | null>;
   findBySlug(slug: string): Promise<Article | null>;
   findByIds(ids: string[], publishedOnly?: boolean): Promise<Article[]>;
   findMany(params: ListArticlesParams): Promise<PaginatedResult<Article>>;

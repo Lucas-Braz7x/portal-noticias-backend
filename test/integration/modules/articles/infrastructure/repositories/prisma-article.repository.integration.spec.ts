@@ -195,7 +195,10 @@ describe('PrismaArticleRepository (integration)', () => {
       name: 'Esportes',
       slug: 'esportes',
     });
-    const otherTag = await seedTag(prisma, { name: 'Futebol', slug: 'futebol' });
+    const otherTag = await seedTag(prisma, {
+      name: 'Futebol',
+      slug: 'futebol',
+    });
 
     const matching = Article.create({
       title: 'Com IA',
@@ -291,6 +294,34 @@ describe('PrismaArticleRepository (integration)', () => {
     expect(updated.title).toBe('Artigo atualizado');
     expect(persistedTags).toHaveLength(1);
     expect(persistedTags[0].tagId).toBe(newTag.id);
+  });
+
+  it('findById returns persisted article including drafts', async () => {
+    const prisma = getTestPrisma();
+    const { author, category, tags } = await seedArticleRefs(prisma);
+
+    const draft = Article.create({
+      title: 'Rascunho',
+      summary: 'Resumo',
+      content: 'Conteúdo',
+      author,
+      category,
+      tags,
+    });
+
+    await repository.save(draft);
+
+    const found = await repository.findById(draft.id);
+
+    expect(found?.id).toBe(draft.id);
+    expect(found?.publishedAt).toBeNull();
+    expect(found?.author).toEqual(author);
+  });
+
+  it('findById returns null when article is not found', async () => {
+    await expect(
+      repository.findById('00000000-0000-4000-8000-000000000000'),
+    ).resolves.toBeNull();
   });
 
   it('existsBySlug returns true when article exists', async () => {
