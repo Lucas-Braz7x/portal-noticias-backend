@@ -13,11 +13,11 @@ Mapa entre requisitos do edital e implementação neste repositório (backend).
 
 | Requisito | Status | Implementação |
 |-----------|--------|---------------|
-| [RF01](./requisitos-funcionais-nao-funcionais.md#rf01--listagem-de-artigos) | 🔜 | `GET /api/v1/articles` — PostgreSQL ou OpenSearch (com `q`) |
-| [RF02](./requisitos-funcionais-nao-funcionais.md#rf02--paginação) | 🔜 | Query `page`, `limit`; resposta com `meta` |
-| [RF03](./requisitos-funcionais-nao-funcionais.md#rf03--busca-textual) | 🔜 | OpenSearch quando `q` presente — [§4.1](#41-listagem) |
-| [RF04](./requisitos-funcionais-nao-funcionais.md#rf04--filtro-por-categoria) | 🔜 | Query `category` |
-| [RF05](./requisitos-funcionais-nao-funcionais.md#rf05--filtro-por-tag) | 🔜 | Query `tag` |
+| [RF01](./requisitos-funcionais-nao-funcionais.md#rf01--listagem-de-artigos) | ✅ | `GET /api/v1/articles` — PostgreSQL (sem `q`); artigos publicados com título, resumo, data, autor, categoria, tags |
+| [RF02](./requisitos-funcionais-nao-funcionais.md#rf02--paginação) | ✅ | Query `page`, `limit`; resposta com `meta` (`page`, `limit`, `total`, `totalPages`) |
+| [RF03](./requisitos-funcionais-nao-funcionais.md#rf03--busca-textual) | ✅ | OpenSearch quando `q` presente — [§4.1](#41-listagem) |
+| [RF04](./requisitos-funcionais-nao-funcionais.md#rf04--filtro-por-categoria) | ✅ | Query `category` — PG (sem `q`); OpenSearch (com `q`) — [§4.1](#41-listagem) |
+| [RF05](./requisitos-funcionais-nao-funcionais.md#rf05--filtro-por-tag) | ✅ | Query `tag` — PG (sem `q`); OpenSearch (com `q`) — [§4.1](#41-listagem) |
 | [RF06](./requisitos-funcionais-nao-funcionais.md#rf06--visualização-do-artigo) | 🔜 | `GET /api/v1/articles/:slug` — [§4.2](#42-detalhe) |
 | [RF07](./requisitos-funcionais-nao-funcionais.md#rf07--api-de-artigos) | 🔜 | Endpoints em [§4](#4-contratos-da-api) |
 | [RF08](./requisitos-funcionais-nao-funcionais.md#rf08--ingestão-de-artigos) | 🔜 | `POST` / `PUT` + header `X-API-Key` — [§4.3](#43-ingestão-criar), [§4.4](#44-ingestão-atualizar) |
@@ -455,8 +455,8 @@ Ver [§4 do documento de requisitos](./requisitos-funcionais-nao-funcionais.md#4
 5. [x] Health-check (`GET /api/v1/health`)
 6. [x] README, `.env.example` e documentação de arquitetura
 7. [x] Domínio + persistência do módulo `articles` (entidades, repositórios Prisma, seed)
-8. [ ] Endpoints RF01–RF08 (`ArticlesService`, controller, OpenSearch)
-9. [ ] Integração OpenSearch (busca e indexação)
+8. [ ] Endpoints RF06–RF08 (detalhe, ingestão); RF01–RF05 ✅
+9. [x] Integração OpenSearch — busca textual (RF03) ✅; indexação na ingestão (RF08) 🔜
 10. [ ] Frontend Next.js ([RF11](./requisitos-funcionais-nao-funcionais.md#rf11--estados-da-interface))
 11. [x] Jest (testes de domínio e mappers)
 12. [ ] (Opcional) CI, cache, ingestão assíncrona via SQS

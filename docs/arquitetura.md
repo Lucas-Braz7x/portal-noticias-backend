@@ -54,7 +54,7 @@ flowchart TB
 | Padrão | Decisão | Status atual |
 |--------|---------|--------------|
 | Repository + Services | **Implementar** no módulo `articles` | 🔜 Parcial (domínio + repos Prisma ✅; service/controller 🔜) |
-| CQRS leve | **Implementar** (PG listagem / OpenSearch `q`) | 🔜 Pendente |
+| CQRS leve | **Implementar** (PG listagem / OpenSearch `q`) | ✅ Busca (`q`) + filtros `category`/`tag` (RF04/RF05) |
 | Domain Events | **Não adotar** | ✅ Decisão fechada |
 | Outbox + SQS | **Documentar (prod)**; LocalStack pronto no Docker | 📄 Infra local ✅ / código 🔜 |
 | ADR | **Adotado** | ✅ `docs/adr/` |
@@ -140,7 +140,7 @@ src/
 │       │       ├── article-not-found.exception.ts
 │       │       └── duplicate-slug.exception.ts
 │       │
-│       └── infrastructure/                 # ✅ parcial (Prisma ✅; OpenSearch 🔜)
+│       └── infrastructure/                 # ✅ parcial (Prisma ✅; OpenSearch ✅ busca / 🔜 ingestão)
 │           ├── repositories/
 │           │   ├── prisma-article.repository.ts
 │           │   ├── prisma-author.repository.ts
@@ -416,7 +416,7 @@ sequenceDiagram
 | Prática | Status | Observação |
 |---------|--------|------------|
 | **Arquitetura Hexagonal** | 🔜 | Ports/adapters no módulo `articles` |
-| **CQRS leve** | 🔜 | Design fechado; implementação pendente |
+| **CQRS leve** | ✅ parcial | Busca textual (`q`) + filtros via OpenSearch; listagem/filtros PG (RF01/RF02/RF04/RF05) ✅ |
 | **Repository + Services** | 🔜 | `ArticlesService` + ports pendentes |
 | **Value Objects** | 🔜 | `Slug` previsto no domínio |
 | **Domain Events** | ✅ Descartado | Orquestração direta no service |

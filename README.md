@@ -72,10 +72,10 @@ yarn prisma:migrate
 
 ### 5. (Opcional) Popular o banco com artigos de exemplo
 
-> **Em breve** — o script `prisma/seed.ts` ainda será adicionado (RF10).
+Popula o banco com 22 artigos fictícios (RF10):
 
 ```bash
-# yarn prisma db seed   # disponível após implementação do seed
+yarn prisma db seed
 ```
 
 ### 6. Iniciar a API
@@ -127,7 +127,7 @@ curl http://localhost:3000/api/v1/health
 | Método | Rota                     | Status          | Descrição                               |
 | ------ | ------------------------ | --------------- | --------------------------------------- |
 | `GET`  | `/api/v1/health`         | ✅ Implementado | Status da API e conexão com banco       |
-| `GET`  | `/api/v1/articles`       | 🔜 Planejado    | Listagem com paginação, busca e filtros |
+| `GET`  | `/api/v1/articles`       | ✅ Implementado | Listagem paginada (RF01/RF02); busca com `q` via OpenSearch (RF03); filtros `category`/`tag` pendentes |
 | `GET`  | `/api/v1/articles/:slug` | 🔜 Planejado    | Detalhe de um artigo                    |
 | `POST` | `/api/v1/articles`       | 🔜 Planejado    | Criar artigo (requer `X-API-Key`)       |
 | `PUT`  | `/api/v1/articles/:id`   | 🔜 Planejado    | Atualizar artigo (requer `X-API-Key`)   |
@@ -144,10 +144,10 @@ O projeto segue **DDD pragmático** com camadas bem definidas:
 Presentation → Application → Domain ← Infrastructure
 ```
 
-- **Controllers** — entrada HTTP, DTOs, validação _(módulo `articles` pendente)_
-- **ArticlesService** — orquestração direta (persistência + indexação) _(pendente)_
-- **Domain** — entidades, value objects, interfaces de repositório _(pendente)_
-- **Infrastructure** — Prisma ✅, OpenSearch 🔜, mappers 🔜
+- **Controllers** — entrada HTTP, DTOs, validação ✅ (`GET /articles`)
+- **ArticlesService** — orquestração direta (PostgreSQL + OpenSearch) ✅
+- **Domain** — entidades, value objects, interfaces de repositório ✅
+- **Infrastructure** — Prisma ✅, OpenSearch ✅ (busca com `q`); filtros category/tag e ingestão 🔜
 
 **CQRS leve:** listagem/filtros no PostgreSQL; busca textual no OpenSearch. Domain Events não adotados — ver [docs/arquitetura.md](docs/arquitetura.md).
 
