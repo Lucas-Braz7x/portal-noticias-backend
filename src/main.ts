@@ -9,6 +9,7 @@ import {
   setupSwagger,
   SWAGGER_PATH,
 } from './shared/presentation/swagger/setup-swagger';
+import { DomainExceptionFilter } from './shared/presentation/filters/domain-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -28,6 +29,8 @@ async function bootstrap() {
       transformOptions: { enableImplicitConversion: true },
     }),
   );
+
+  app.useGlobalFilters(new DomainExceptionFilter());
 
   setupSwagger(app);
 
