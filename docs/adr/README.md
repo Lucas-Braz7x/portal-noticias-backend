@@ -14,6 +14,7 @@ Cada ADR captura o contexto, a decisão tomada e suas consequências. Decisões 
 | [0003](./0003-cqrs-leve.md) | CQRS leve (PG + OpenSearch) | Aceito |
 | [0004](./0004-articles-service-orquestracao.md) | Orquestração via ArticlesService | Aceito |
 | [0005](./0005-ddd-pragmatico-repository.md) | DDD pragmático com Repository | Aceito |
+| [0006](./0006-modelo-relacional-normalizado.md) | Modelo relacional normalizado | Aceito |
 
 ## Como criar um novo ADR
 

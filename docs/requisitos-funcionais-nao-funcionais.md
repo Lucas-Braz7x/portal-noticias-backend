@@ -240,6 +240,8 @@ Caso IA seja utilizada durante o desenvolvimento, o projeto deve documentar:
 - dúvidas e premissas;
 - próximos passos.
 
+> Atendido por [uso-de-ia.md](./uso-de-ia.md).
+
 ---
 
 ## 4. Fora do Escopo

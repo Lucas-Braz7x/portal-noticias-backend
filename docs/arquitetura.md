@@ -53,7 +53,7 @@ flowchart TB
 
 | Padrão | Decisão | Status atual |
 |--------|---------|--------------|
-| Repository + Services | **Implementar** no módulo `articles` | 🔜 Pendente |
+| Repository + Services | **Implementar** no módulo `articles` | 🔜 Parcial (domínio + repos Prisma ✅; service/controller 🔜) |
 | CQRS leve | **Implementar** (PG listagem / OpenSearch `q`) | 🔜 Pendente |
 | Domain Events | **Não adotar** | ✅ Decisão fechada |
 | Outbox + SQS | **Documentar (prod)**; LocalStack pronto no Docker | 📄 Infra local ✅ / código 🔜 |
@@ -99,7 +99,7 @@ flowchart TB
 
 ## 3. Estrutura de pastas
 
-> **Alvo** do módulo `articles`. Hoje o código está em `src/app.*` + `src/prisma/` (bootstrap e health-check).
+> **Alvo** do módulo `articles`. Domínio e persistência implementados; presentation/application pendentes.
 
 ```
 src/
@@ -108,37 +108,48 @@ src/
 ├── app.controller.ts          # health-check (temporário na raiz)
 ├── app.service.ts
 │
-├── modules/                   # a implementar
+├── modules/
 │   └── articles/
-│       ├── articles.module.ts
+│       ├── articles.module.ts              # 🔜 pendente
 │       │
-│       ├── presentation/
+│       ├── presentation/                   # 🔜 pendente
 │       │   ├── articles.controller.ts
 │       │   └── dto/
 │       │       ├── create-article.dto.ts
 │       │       ├── update-article.dto.ts
 │       │       └── list-articles-query.dto.ts
 │       │
-│       ├── application/
+│       ├── application/                    # 🔜 pendente
 │       │   └── articles.service.ts
 │       │
-│       ├── domain/
+│       ├── domain/                         # ✅ implementado
 │       │   ├── entities/
-│       │   │   └── article.entity.ts
+│       │   │   ├── article.entity.ts       # aggregate root
+│       │   │   ├── author.entity.ts
+│       │   │   ├── category.entity.ts
+│       │   │   └── tag.entity.ts
 │       │   ├── value-objects/
 │       │   │   └── slug.vo.ts
 │       │   ├── repositories/
-│       │   │   ├── article.repository.ts      # interface (port)
-│       │   │   └── search.repository.ts       # interface (port)
+│       │   │   ├── article.repository.ts
+│       │   │   ├── author.repository.ts
+│       │   │   ├── category.repository.ts
+│       │   │   ├── tag.repository.ts
+│       │   │   └── search.repository.ts
 │       │   └── exceptions/
-│       │       └── article-not-found.exception.ts
+│       │       ├── article-not-found.exception.ts
+│       │       └── duplicate-slug.exception.ts
 │       │
-│       └── infrastructure/
+│       └── infrastructure/                 # ✅ parcial (Prisma ✅; OpenSearch 🔜)
 │           ├── repositories/
 │           │   ├── prisma-article.repository.ts
-│           │   └── opensearch-search.repository.ts
+│           │   ├── prisma-author.repository.ts
+│           │   ├── prisma-category.repository.ts
+│           │   ├── prisma-tag.repository.ts
+│           │   └── opensearch-search.repository.ts  # 🔜
 │           └── mappers/
-│               └── article.mapper.ts
+│               ├── article.mapper.ts
+│               └── reference.mapper.ts
 │
 ├── prisma/                    # atual — migrar para shared/infrastructure/ depois
 │   ├── prisma.module.ts
@@ -155,8 +166,13 @@ src/
 │
 prisma/
 ├── schema.prisma
-├── migrations/
-└── seed.ts                    # planejado (RF10)
+├── migrations/                 # uma migration por entidade
+│   ├── 20260820152537_create_authors/
+│   ├── 20260820152538_create_categories/
+│   ├── 20260820152539_create_tags/
+│   ├── 20260820152540_create_articles/
+│   └── 20260820152541_create_article_tags/
+└── seed.ts                    # ✅ 22 artigos (RF10)
 ```
 
 ---
@@ -283,11 +299,48 @@ Domain Exception → DomainExceptionFilter → HTTP Response padronizada
 
 ### Convenções
 
-| Tipo | Local | Ferramenta |
-|------|-------|------------|
-| Unitário | `*.spec.ts` ao lado do arquivo | Jest (a configurar) |
-| Integração | `test/integration/` | Jest |
-| E2E | `test/e2e/` | Jest + Supertest |
+| Tipo | Comando | Local | Banco |
+|------|---------|-------|-------|
+| Unitário | `yarn test` / `yarn test:cov` | `test/**/*.spec.ts` (exceto `integration/`) | mocks ou lógica pura |
+| Integração | `yarn test:integration` | `test/integration/**/*.integration.spec.ts` | PostgreSQL (schema isolado) |
+| E2E | futuro | `test/e2e/` | Jest + Supertest |
+
+O pre-commit executa apenas `yarn test:cov` (unitários). Integração roda à parte e exige Postgres (`docker compose up -d`).
+
+### Mock vs banco — sem duplicidade
+
+Não manter teste com mock **e** teste de integração para o **mesmo cenário** de repositório Prisma. Cada camada tem um tipo de teste:
+
+| Camada | Onde | Mock? | O que valida |
+|--------|------|-------|--------------|
+| Domínio | `test/modules/.../domain/` | Não | Regras de negócio (validações, factories) |
+| Mappers | `test/.../mappers/` | Não | Conversão entre modelos e entidades |
+| Repositórios Prisma | `test/integration/.../` | **Não** | SQL, persistência, filtros, transações, FKs, constraints |
+| ArticlesService | `test/.../application/` | **Sim** (ports) | Orquestração — ex.: `save` + `search.index` no create |
+| Infra Nest | `test/prisma/`, health | Sim quando couber | Lifecycle, wiring mínimo |
+
+**Repositórios:** assertar comportamento observável (semear dados, consultar resultado), não `toHaveBeenCalledWith` no Prisma mockado. Exemplo:
+
+```typescript
+// Integração — comportamento real
+const category = await repository.findOrCreate({ name: '  Tecnologia  ' });
+const persisted = await prisma.category.findUnique({ where: { slug: 'tecnologia' } });
+expect(persisted?.name).toBe('Tecnologia');
+```
+
+**Service:** mockar `IArticleRepository`, `ISearchRepository` etc.; nunca bater no banco no unitário do service.
+
+Specs mock de repositório em `test/modules/.../repositories/` devem ser **migrados** para integração e removidos — não duplicar.
+
+### Infra de integração (schema isolado)
+
+Testes de integração usam o mesmo PostgreSQL do `docker-compose`, com schema efêmero por execução:
+
+1. `globalSetup` cria schema `test_<uuid>` e roda `prisma migrate deploy`
+2. Testes executam contra `DATABASE_URL?schema=test_xxx`
+3. `beforeEach` trunca tabelas; `globalTeardown` faz `DROP SCHEMA CASCADE`
+
+Sem segundo container. Variável base: `TEST_DATABASE_BASE_URL` (ver `.env.example`).
 
 Exemplo de teste de domínio:
 
