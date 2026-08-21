@@ -2,25 +2,115 @@ generator client {
   provider = "prisma-client-js"
 }
 
+generator docs {
+  provider = "node node_modules/prisma-docs-generator"
+  output   = "../docs/prisma-schema"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-model Article {
-  id          String   @id @default(uuid()) @db.Uuid
-  slug        String   @unique
-  title       String
-  summary     String
-  content     String   @db.Text
-  publishedAt DateTime @map("published_at") @db.Timestamptz(6)
-  author      String
-  category    String
-  tags        String[]
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+/// Autor de artigos. Entidade de referência vinculada a um ou mais artigos.
+model Author {
+  /// Identificador único (UUID).
+  id        String    @id @default(uuid()) @db.Uuid
+  /// Nome de exibição do autor.
+  name      String
+  /// Data de criação do registro.
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// Data da última atualização do registro.
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Artigos escritos por este autor.
+  articles  Article[]
 
-  @@index([category])
+  @@map("authors")
+}
+
+/// Categoria editorial. Entidade de referência usada para classificar artigos.
+model Category {
+  /// Identificador único (UUID).
+  id        String    @id @default(uuid()) @db.Uuid
+  /// Nome de exibição da categoria.
+  name      String
+  /// Slug URL-friendly e único para filtros e rotas.
+  slug      String    @unique
+  /// Data de criação do registro.
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// Data da última atualização do registro.
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Artigos classificados nesta categoria.
+  articles  Article[]
+
+  @@map("categories")
+}
+
+/// Tag editorial. Entidade de referência associada a artigos via N:N.
+model Tag {
+  /// Identificador único (UUID).
+  id          String       @id @default(uuid()) @db.Uuid
+  /// Nome de exibição da tag.
+  name        String
+  /// Slug URL-friendly e único para filtros e rotas.
+  slug        String       @unique
+  /// Data de criação do registro.
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// Data da última atualização do registro.
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Vínculos com artigos (tabela associativa).
+  articleTags ArticleTag[]
+
+  @@map("tags")
+}
+
+/// Artigo de notícia. Aggregate root do bounded context; referencia autor, categoria e tags.
+model Article {
+  /// Identificador único (UUID).
+  id          String       @id @default(uuid()) @db.Uuid
+  /// Título do artigo.
+  title       String
+  /// Slug URL-friendly e único usado na rota de detalhe.
+  slug        String       @unique
+  /// Resumo curto para listagens e SEO.
+  summary     String
+  /// Conteúdo completo (HTML ou Markdown).
+  content     String       @db.Text
+  /// Data de publicação em ISO 8601; `null` indica rascunho não publicado.
+  publishedAt DateTime?    @map("published_at") @db.Timestamptz(6)
+  /// FK para o autor (ON DELETE RESTRICT).
+  authorId    String       @map("author_id") @db.Uuid
+  /// FK para a categoria (ON DELETE RESTRICT).
+  categoryId  String       @map("category_id") @db.Uuid
+  /// Data de criação do registro.
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// Data da última atualização do registro.
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Autor do artigo.
+  author      Author       @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  /// Categoria do artigo.
+  category    Category     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  /// Tags associadas via tabela `article_tags`.
+  articleTags ArticleTag[]
+
   @@index([publishedAt(sort: Desc)])
+  @@index([authorId])
+  @@index([categoryId, publishedAt(sort: Desc)])
   @@map("articles")
+}
+
+/// Tabela associativa N:N entre artigos e tags.
+model ArticleTag {
+  /// FK para o artigo (ON DELETE CASCADE).
+  articleId String  @map("article_id") @db.Uuid
+  /// FK para a tag (ON DELETE RESTRICT).
+  tagId     String  @map("tag_id") @db.Uuid
+  /// Artigo associado.
+  article   Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  /// Tag associada.
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Restrict)
+
+  @@id([articleId, tagId])
+  @@index([tagId])
+  @@map("article_tags")
 }
