@@ -110,9 +110,15 @@ curl http://localhost:3000/api/v1/health
 | `yarn lint:fix`        | ESLint com correção automática           |
 | `yarn format`          | Formata código com Prettier              |
 | `yarn format:check`    | Verifica formatação sem alterar arquivos |
+| `yarn test`            | Executa testes unitários                 |
+| `yarn test:cov`        | Testes unitários com cobertura (mínimo global 75%) |
+| `yarn test:watch`      | Testes unitários em modo watch           |
+| `yarn test:integration`| Repositórios Prisma com PostgreSQL real |
+| `yarn test:all`        | Unitários + integração                   |
 | `yarn prisma:migrate`  | Cria/aplica migrations                   |
 | `yarn prisma:studio`   | Abre Prisma Studio                       |
-| `yarn prisma:generate` | Gera Prisma Client                       |
+| `yarn prisma:generate` | Gera Prisma Client e docs HTML do schema |
+| `yarn prisma:docs`     | Serve a referência HTML em `localhost:5858` |
 
 ---
 
@@ -156,7 +162,57 @@ Documentação completa: [docs/arquitetura.md](docs/arquitetura.md)
 | [docs/requisitos-funcionais-nao-funcionais.md](docs/requisitos-funcionais-nao-funcionais.md) | Baseline do edital — requisitos funcionais e não funcionais        |
 | [docs/SDD.md](docs/SDD.md)                                                                   | Especificação técnica (contratos, modelos, stack, rastreabilidade) |
 | [docs/arquitetura.md](docs/arquitetura.md)                                                   | Padrões, camadas, TDD, estrutura de pastas                         |
+| [docs/prisma-schema/index.html](docs/prisma-schema/index.html)                               | Referência HTML do schema Prisma (models, campos, relações)        |
+| [docs/diagramas/diagrama-eer.png](docs/diagramas/diagrama-eer.png)                           | Diagrama EER do banco relacional                                   |
 | [docs/adr/](docs/adr/)                                                                       | Architecture Decision Records (ADRs)                               |
+| [docs/uso-de-ia.md](docs/uso-de-ia.md)                                                       | Uso de IA no desenvolvimento (RNF16)                                 |
+
+### Schema Prisma e diagrama EER
+
+O modelo relacional está documentado em três formatos complementares:
+
+| Recurso | Descrição |
+| ------- | --------- |
+| [`prisma/schema.prisma`](prisma/schema.prisma) | Fonte da verdade — models, relações e comentários `///` |
+| [`docs/prisma-schema/index.html`](docs/prisma-schema/index.html) | Referência HTML interativa (models, campos, operações do client) |
+| [`docs/diagramas/diagrama-eer.png`](docs/diagramas/diagrama-eer.png) | Diagrama EER visual do banco relacional |
+
+Os comentários `///` alimentam o IntelliSense do Prisma Client e a referência HTML gerada pelo [`prisma-docs-generator`](https://github.com/pantharshit00/prisma-docs-generator).
+
+```bash
+# Regenera client + docs/prisma-schema/index.html
+yarn prisma:generate
+
+# Abre servidor local para navegar a referência HTML
+yarn prisma:docs
+# → http://localhost:5858
+```
+
+Também é possível abrir diretamente [`docs/prisma-schema/index.html`](docs/prisma-schema/index.html) ou o [`diagrama EER`](docs/diagramas/diagrama-eer.png) no navegador/visualizador de imagens.
+
+---
+
+## Testes
+
+Duas suites **Jest**, com responsabilidades distintas (sem duplicar mock + banco no mesmo cenário):
+
+| Suite | Comando | Escopo |
+|-------|---------|--------|
+| Unitário | `yarn test` / `yarn test:cov` | Domínio, mappers, ArticlesService (mocks), health |
+| Integração | `yarn test:integration` | Repositórios Prisma com PostgreSQL real (schema isolado) |
+
+```bash
+yarn test              # unitários (pre-commit)
+yarn test:cov          # unitários + cobertura (mínimo global 75%)
+yarn test:watch        # unitários em modo interativo
+yarn test:integration  # repositórios — requer docker compose up -d
+```
+
+Estratégia completa (mock vs banco, o que testar em cada camada): [docs/arquitetura.md §5](docs/arquitetura.md#5-tdd--estratégia-de-testes).
+
+O **[Husky](https://typicode.github.io/husky/)** executa `yarn test:cov` no **pre-commit** — apenas unitários.
+
+Arquivos excluídos da cobertura unitária: bootstrap (`main.ts`, módulos Nest), interfaces de repositório no domínio e **implementações Prisma em `infrastructure/repositories/`** (cobertas por `yarn test:integration`).
 
 ---
 
@@ -190,10 +246,16 @@ portal-noticias-backend/
 │   ├── app.controller.ts     # GET /health
 │   ├── app.service.ts
 │   └── prisma/               # PrismaModule (global)
+├── src/                      # código da aplicação
+├── test/                     # testes unitários (*.spec.ts)
 ├── prisma/
-│   ├── schema.prisma
-│   └── migrations/
+│   ├── schema.prisma         # models + comentários ///
+│   ├── migrations/           # uma migration por entidade (authors → article_tags)
 ├── docs/
+│   ├── prisma-schema/        # referência HTML (gerada por yarn prisma:generate)
+│   └── diagramas/
+│       └── diagrama-eer.png  # diagrama EER do banco relacional
+├── .husky/                   # git hooks (pre-commit → yarn test:cov)
 ├── docker-compose.yml
 └── .env.example
 ```
