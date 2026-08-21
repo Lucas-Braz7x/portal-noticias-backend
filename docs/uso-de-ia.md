@@ -25,9 +25,9 @@ Sonnet 4.6 para decisões estruturais; Composer 2.5 para iteração rápida e TD
 |------|--------------------|-------------------------|
 | **Documentação** (`docs/`, ADRs, SDD) | Estrutura, primeira redação, tabelas, diagramas Mermaid | Alinhamento ao edital, ADRs, status ✅/🔜/📄 |
 | **Schema e seed** | Models, migrations, script inicial | Normalização (ADR-0006), FKs, índices, dados do seed |
-| **Código** (domínio, infra) | Entidades, repos Prisma, mappers | Regras de negócio, exceções, contratos das interfaces |
-| **Testes** | Casos iniciais, setup de integração | Estratégia mock vs. banco, cobertura, pre-commit |
-| **Infra local** | `docker-compose.yml`, `.env.example` | Portas, health checks, validação local |
+| **Código** (domínio, infra) | Entidades, repos Prisma/OpenSearch, `ArticlesService`, guards/filters, mappers | Regras de negócio, exceções, contratos das interfaces |
+| **Testes** | Casos iniciais, setup de integração, specs HTTP com OpenSearch real | Estratégia mock vs. banco vs. OpenSearch, cobertura, pre-commit |
+| **Infra local** | `docker-compose.yml`, `.env.example`, flag `SEARCH_REINDEX_ON_STARTUP` | Portas, health checks, validação local |
 | **Regras Cursor** (`.cursor/rules/`) | Rascunho de padrões | Consistência com ADRs e código existente |
 
 ---
@@ -60,12 +60,18 @@ Registro de escolhas tomadas durante o projeto — em vários casos, a IA sugeri
 | DDD | Módulo por entidade | Bounded context `articles` | [ADR-0005](./adr/0005-ddd-pragmatico-repository.md) |
 | HTTP | Express (padrão NestJS) | Fastify | [ADR-0001](./adr/0001-nestjs-fastify.md) |
 | Testes Prisma | Mock nos unitários | Integração com PG real | [arquitetura.md §5](./arquitetura.md#5-tdd--estratégia-de-testes) |
+| Validação HTTP | 422 Unprocessable Entity | **400 Bad Request** (default NestJS, alinhado ao SDD) | [arquitetura.md §4.5](./arquitetura.md#45-tratamento-de-erros) |
+| Despublicar (`publishedAt: null`) | Reindexar sem `publishedAt` no OpenSearch | `search.remove()` — documento removido do índice | [arquitetura.md §4.4](./arquitetura.md#44-indexação--local-vs-produção) |
+| Reindex na subida | Full reindex em todo `onModuleInit` | `SEARCH_REINDEX_ON_STARTUP` (default `true` em dev) | [README](../README.md#variáveis-de-ambiente) |
+| Teste HTTP `?q=` | Mock de `SEARCH_REPOSITORY` no controller | Spec dedicado com OpenSearch real | `articles.controller.search.integration.spec.ts` |
 
 **Ajustes relevantes após rascunhos da IA:**
 
 - Schema normalizado com PK composta em `article_tags` e `ON DELETE RESTRICT`.
 - Regras de domínio em `Article` e `Slug`; exceções `ArticleNotFound`, `DuplicateSlug`.
 - Suites separadas: unitário (`yarn test`) e integração (`yarn test:integration`); repos Prisma fora da cobertura unitária.
+- Spec de integração HTTP de busca separado do spec com mock (listagem PG + ingestão).
+- Helper compartilhado `test/integration/helpers/opensearch.helper.ts` para health check e limpeza do índice.
 - Descartados: event bus, use case por endpoint, Testcontainers (Docker Compose já cobre integração local).
 
 ---
@@ -83,6 +89,7 @@ Resumo das principais sessões — objetivo, prompt essencial e resultado. Sem d
 | ADRs | *"Gere ADRs para Fastify, sem events, CQRS, ArticlesService, repository."* | 6 ADRs aceitos; ADR-0006 após pivot do schema |
 | Testes | *"Estratégia Jest: unitários no domínio, integração nos repos Prisma, Husky pre-commit."* | Mock vs. banco definido; exclusões de cobertura |
 | Normalização | *"Modelo normalizado mantendo API flat e denormalização no OpenSearch."* | 5 tabelas; `published_at` nullable — ADR-0006 |
+| Lacunas técnicas | *"Plano: teste HTTP ?q= real, unpublish remove, reindex flag, docs 400."* | 5 commits atômicos; TDD Red→Green |
 
 ### Execução — Composer 2.5
 
@@ -90,8 +97,13 @@ Resumo das principais sessões — objetivo, prompt essencial e resultado. Sem d
 |--------|-----------------|-----------|
 | Schema + seed | *"Schema Prisma Author/Category/Tag/Article/ArticleTag; seed 20+ artigos."* | Migrations incrementais; comentários `///` |
 | Domínio + repos | *"Módulo articles: entidades, ArticleRepository, PrismaArticleRepository paginado."* | Filtros RF04/RF05; mappers; exceções de domínio |
+| OpenSearch | *"Cliente OpenSearch, ISearchRepository, busca textual com multi_match e filtros."* | CQRS leve; `findByIds` preserva ordem de relevância |
+| Ingestão RF08 | *"POST/PUT com ApiKeyGuard, DTOs, create/update no ArticlesService, indexação síncrona."* | `search.remove()` na despublicação; find-or-create de refs |
+| Guards/filters | *"ApiKeyGuard + DomainExceptionFilter global para erros padronizados."* | 400 via ValidationPipe default; 404/409 via filter |
 | Testes unitários | *"Testes para ArticleMapper e Slug VO."* | Casos de borda cobertos |
 | Testes integração | *"Integração PrismaArticleRepository com schema isolado."* | Setup global; cenários find/create/filtro |
+| Testes busca HTTP | *"Spec dedicado GET ?q= com OpenSearch real; helper compartilhado."* | Lacuna de controller mockada fechada |
+| Bootstrap OS | *"Flag SEARCH_REINDEX_ON_STARTUP; ensureIndex sempre, reindex condicional."* | Dev `true`; prod `false` + job futuro |
 | Infra + DX | *"Docker Compose PG+OpenSearch+LocalStack; Husky test:cov."* | `.env.example` e README alinhados |
 | Cursor rules | *"Rules para DDD pragmático, consulta à docs, TDD."* | `.cursor/rules/` consistente com ADRs |
 
@@ -99,9 +111,19 @@ Resumo das principais sessões — objetivo, prompt essencial e resultado. Sem d
 
 ## 6. Resumo da solução
 
-API REST **NestJS 11 + Fastify**, **PostgreSQL** (persistência) e **OpenSearch** (busca textual, CQRS leve). Bounded context `articles` com entidades, value objects e repositórios abstraídos; orquestração prevista no `ArticlesService`. Infra local via Docker Compose.
+API REST **NestJS 11 + Fastify**, **PostgreSQL** (persistência) e **OpenSearch** (busca textual, CQRS leve). Bounded context `articles` com entidades, value objects e repositórios abstraídos; orquestração no `ArticlesService`. Infra local via Docker Compose.
 
-**Estado atual:** schema, seed, domínio, repositórios Prisma, mappers e testes implementados; endpoints HTTP e OpenSearch na API pendentes.
+**Estado atual (RF01–RF10 ✅):**
+
+| Área | Implementado |
+|------|--------------|
+| Leitura | `GET /articles` (PG), `GET /articles?q=` (OpenSearch + hidratação PG), `GET /articles/:slug` |
+| Ingestão | `POST` / `PUT` com `X-API-Key`; indexação síncrona; `search.remove()` na despublicação |
+| Segurança | `ApiKeyGuard`, validação DTO (`400`), `DomainExceptionFilter` (`404`, `409`) |
+| OpenSearch | Cliente, índice, bootstrap (`ensureIndex` + reindex opcional), testes repo + HTTP |
+| Testes | ~105 unitários + ~59 integração (PG, OpenSearch, HTTP) |
+
+**Pendente / só documentado:** worker SQS assíncrono, CI pipeline, observabilidade CloudWatch/X-Ray, OpenAPI/Swagger.
 
 → [SDD.md](./SDD.md) · [arquitetura.md](./arquitetura.md)
 
@@ -115,7 +137,9 @@ API REST **NestJS 11 + Fastify**, **PostgreSQL** (persistência) e **OpenSearch*
 | CQRS leve | PG para listagem; OS para relevância | Sincronização PG → OS |
 | Modelo normalizado | Integridade; filtros RF04/RF05 | JOINs; find-or-create na ingestão |
 | DDD pragmático | Domínio testável, baixa ceremony | Menos pureza que DDD enterprise |
-| Integração separada | Confiança nos repos Prisma | Requer Docker; suite mais lenta |
+| Integração separada | Confiança nos repos Prisma e OpenSearch | Requer Docker; suite mais lenta |
+| Reindex na subida (dev) | Índice consistente após restart local | Em prod exige flag `false` + job dedicado |
+| `search.remove()` na despublicação | Índice sem documentos órfãos | Operação extra no fluxo de update |
 
 ---
 
@@ -123,10 +147,10 @@ API REST **NestJS 11 + Fastify**, **PostgreSQL** (persistência) e **OpenSearch*
 
 **Premissas:** frontend em repo separado; ingestão via `X-API-Key`; `published_at` nullable para rascunhos; arquitetura AWS documentada, worker fora do escopo local.
 
-**Próximos passos:**
+**Próximos passos (diferenciais opcionais):**
 
-1. `ArticlesService` + controllers + DTOs (RF01–RF08)
-2. Cliente OpenSearch + indexação
-3. Filters/guards (erros padronizados, API Key)
-4. Testes do service com mocks
-5. Atualizar rastreabilidade no SDD
+1. Pipeline CI (lint, test, test:integration com serviços Docker)
+2. Worker SQS + indexação assíncrona em produção (LocalStack já provisionado)
+3. Job de reindexação em produção (`SEARCH_REINDEX_ON_STARTUP=false`)
+4. OpenAPI/Swagger exposto na API
+5. Observabilidade (correlation ID, logs estruturados, CloudWatch)
