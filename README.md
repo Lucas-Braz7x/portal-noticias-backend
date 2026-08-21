@@ -264,6 +264,29 @@ portal-noticias-backend/
 
 ---
 
+## Commits
+
+Este projeto segue **[Conventional Commits](https://www.conventionalcommits.org/)** (padrão usado pelo [Commitizen](https://github.com/commitizen/cz-cli)):
+
+```
+<type>(<scope>): <descrição curta>
+
+[corpo opcional]
+```
+
+| Tipo        | Uso                                              |
+| ----------- | ------------------------------------------------ |
+| `feat`      | Nova funcionalidade                              |
+| `fix`       | Correção de bug                                  |
+| `docs`      | Documentação                                     |
+| `test`      | Testes                                           |
+| `chore`     | Manutenção (deps, configs, tooling)              |
+| `refactor`  | Refatoração sem mudança de comportamento         |
+
+Exemplos do histórico: `feat(articles): add prisma repositories`, `fix(build): prevent empty dist output`.
+
+---
+
 ## Licença
 
 Projeto privado — uso exclusivo para avaliação técnica.
