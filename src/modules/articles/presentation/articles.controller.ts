@@ -13,7 +13,7 @@ export class ArticlesController {
   @ApiOperation({
     summary: 'Listar artigos publicados',
     description:
-      'Retorna artigos publicados com paginação. Atende RF01 (listagem) e RF02 (paginação).',
+      'Retorna artigos publicados com paginação. Com `q`, busca textual via OpenSearch (RF03). Sem `q`, lista via PostgreSQL (RF01/RF02). Filtros opcionais `category` e `tag` (RF04/RF05) aceitam **slug** (ex.: `politica`, `eleicoes`), não o nome legível retornado em `data[].category` / `data[].tags`.',
   })
   @ApiOkResponse({ type: PaginatedArticlesResponseDto })
   list(@Query() query: ListArticlesQueryDto) {

@@ -1,15 +1,47 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import { Type } from 'class-transformer';
-import { IsInt, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class ListArticlesQueryDto {
+  @ApiPropertyOptional({
+    description: 'Termo de busca textual (título, resumo, conteúdo, tags)',
+    example: 'tecnologia',
+  })
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  q?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Filtro por slug de categoria (RF04). Use o slug URL-friendly, não o nome exibido na resposta (ex.: `politica`, não `Política`).',
+    example: 'politica',
+  })
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  category?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Filtro por slug de tag (RF05). Use o slug URL-friendly, não o nome exibido na resposta (ex.: `eleicoes`, não `Eleições`).',
+    example: 'eleicoes',
+  })
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  tag?: string;
+
   @ApiPropertyOptional({
     description: 'Número da página',
     default: 1,
     minimum: 1,
     example: 1,
   })
+  @IsOptional()
   @Type(() => Number)
+  @Transform(({ value }) => value ?? 1)
   @IsInt()
   @Min(1)
   page: number = 1;
@@ -21,7 +53,9 @@ export class ListArticlesQueryDto {
     maximum: 50,
     example: 10,
   })
+  @IsOptional()
   @Type(() => Number)
+  @Transform(({ value }) => value ?? 10)
   @IsInt()
   @Min(1)
   @Max(50)

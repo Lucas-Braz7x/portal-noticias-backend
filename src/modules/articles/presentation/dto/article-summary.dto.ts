@@ -16,9 +16,18 @@ export class ArticleSummaryDto {
   @ApiProperty({ example: 'Maria Silva' })
   author!: string;
 
-  @ApiProperty({ example: 'Política' })
+  @ApiProperty({
+    description:
+      'Nome legível da categoria. Para filtrar, use o slug em `?category=` (ex.: `politica`).',
+    example: 'Política',
+  })
   category!: string;
 
-  @ApiProperty({ example: ['economia', 'brasil'], type: [String] })
+  @ApiProperty({
+    description:
+      'Nomes legíveis das tags. Para filtrar, use o slug em `?tag=` (ex.: `eleicoes`).',
+    example: ['Eleições', 'Paraná'],
+    type: [String],
+  })
   tags!: string[];
 }
