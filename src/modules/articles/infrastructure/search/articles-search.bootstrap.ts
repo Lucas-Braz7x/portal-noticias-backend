@@ -1,4 +1,5 @@
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   ARTICLE_REPOSITORY,
   IArticleRepository,
@@ -18,11 +19,18 @@ export class ArticlesSearchBootstrap implements OnModuleInit {
     @Inject(SEARCH_REPOSITORY)
     private readonly search: ISearchRepository,
     private readonly openSearchRepository: OpenSearchSearchRepository,
+    private readonly config: ConfigService,
   ) {}
 
   async onModuleInit(): Promise<void> {
     await this.openSearchRepository.ensureIndex();
-    await this.reindexPublishedArticles();
+
+    const reindexOnStartup =
+      this.config.get<string>('SEARCH_REINDEX_ON_STARTUP', 'true') === 'true';
+
+    if (reindexOnStartup) {
+      await this.reindexPublishedArticles();
+    }
   }
 
   private async reindexPublishedArticles(): Promise<void> {
