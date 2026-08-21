@@ -5,6 +5,10 @@ import {
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module';
+import {
+  setupSwagger,
+  SWAGGER_PATH,
+} from './shared/presentation/swagger/setup-swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -12,7 +16,9 @@ async function bootstrap() {
     new FastifyAdapter({ logger: true }),
   );
 
-  app.setGlobalPrefix('api/v1');
+  app.setGlobalPrefix('api/v1', {
+    exclude: [SWAGGER_PATH, `${SWAGGER_PATH}-json`],
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -22,6 +28,8 @@ async function bootstrap() {
       transformOptions: { enableImplicitConversion: true },
     }),
   );
+
+  setupSwagger(app);
 
   app.enableShutdownHooks();
 
