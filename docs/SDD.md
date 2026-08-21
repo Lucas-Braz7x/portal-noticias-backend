@@ -18,9 +18,9 @@ Mapa entre requisitos do edital e implementação neste repositório (backend).
 | [RF03](./requisitos-funcionais-nao-funcionais.md#rf03--busca-textual) | ✅ | OpenSearch quando `q` presente — [§4.1](#41-listagem) |
 | [RF04](./requisitos-funcionais-nao-funcionais.md#rf04--filtro-por-categoria) | ✅ | Query `category` — PG (sem `q`); OpenSearch (com `q`) — [§4.1](#41-listagem) |
 | [RF05](./requisitos-funcionais-nao-funcionais.md#rf05--filtro-por-tag) | ✅ | Query `tag` — PG (sem `q`); OpenSearch (com `q`) — [§4.1](#41-listagem) |
-| [RF06](./requisitos-funcionais-nao-funcionais.md#rf06--visualização-do-artigo) | 🔜 | `GET /api/v1/articles/:slug` — [§4.2](#42-detalhe) |
-| [RF07](./requisitos-funcionais-nao-funcionais.md#rf07--api-de-artigos) | 🔜 | Endpoints em [§4](#4-contratos-da-api) |
-| [RF08](./requisitos-funcionais-nao-funcionais.md#rf08--ingestão-de-artigos) | 🔜 | `POST` / `PUT` + header `X-API-Key` — [§4.3](#43-ingestão-criar), [§4.4](#44-ingestão-atualizar) |
+| [RF06](./requisitos-funcionais-nao-funcionais.md#rf06--visualização-do-artigo) | ✅ | `GET /api/v1/articles/:slug` — [§4.2](#42-detalhe) |
+| [RF07](./requisitos-funcionais-nao-funcionais.md#rf07--api-de-artigos) | ✅ | Endpoints em [§4](#4-contratos-da-api) |
+| [RF08](./requisitos-funcionais-nao-funcionais.md#rf08--ingestão-de-artigos) | ✅ | `POST` / `PUT` + header `X-API-Key` — [§4.3](#43-ingestão-criar), [§4.4](#44-ingestão-atualizar) |
 | [RF09](./requisitos-funcionais-nao-funcionais.md#rf09--persistência) | ✅ | PostgreSQL via Prisma — schema + migration — [§2](#2-modelo-de-dados) |
 | [RF10](./requisitos-funcionais-nao-funcionais.md#rf10--dados-iniciais) | ✅ | `prisma/seed.ts` — 22 artigos, 5 categorias, 10 tags |
 | [RF11](./requisitos-funcionais-nao-funcionais.md#rf11--estados-da-interface) | — | Frontend (repositório separado) |
@@ -33,17 +33,17 @@ Mapa entre requisitos do edital e implementação neste repositório (backend).
 |-----------|--------|--------------------------|
 | [RNF01](./requisitos-funcionais-nao-funcionais.md#rnf01--typescript) | ✅ | TypeScript com `strict` no `tsconfig.json` |
 | [RNF02](./requisitos-funcionais-nao-funcionais.md#rnf02--backend) | ✅ | NestJS 11 + adapter Fastify — [§3.1](#31-stack-escolhida) |
-| [RNF03](./requisitos-funcionais-nao-funcionais.md#rnf03--separação-de-responsabilidades) | 🔜 | Camadas DDD definidas; módulo `articles` pendente — [arquitetura.md](./arquitetura.md) |
-| [RNF04](./requisitos-funcionais-nao-funcionais.md#rnf04--tratamento-de-erros) | 🔜 | Formato em [§4.5](#45-erros-padronizados); filters pendentes |
+| [RNF03](./requisitos-funcionais-nao-funcionais.md#rnf03--separação-de-responsabilidades) | ✅ | Camadas DDD no módulo `articles` — [arquitetura.md](./arquitetura.md) |
+| [RNF04](./requisitos-funcionais-nao-funcionais.md#rnf04--tratamento-de-erros) | ✅ | Formato em [§4.5](#45-erros-padronizados); `DomainExceptionFilter` (`ARTICLE_NOT_FOUND`, `DUPLICATE_SLUG`) |
 | [RNF05](./requisitos-funcionais-nao-funcionais.md#rnf05--configuração-por-ambiente) | ✅ | `.env` + `@nestjs/config` |
 | [RNF06](./requisitos-funcionais-nao-funcionais.md#rnf06--containerização) | ✅ | `docker-compose.yml` (PG, OpenSearch, LocalStack) |
-| [RNF07](./requisitos-funcionais-nao-funcionais.md#rnf07--testabilidade) | 🔜 | Jest — a configurar |
-| [RNF08](./requisitos-funcionais-nao-funcionais.md#rnf08--qualidade-de-código) | 🔜 | Padrões definidos em [arquitetura.md](./arquitetura.md); código pendente |
+| [RNF07](./requisitos-funcionais-nao-funcionais.md#rnf07--testabilidade) | ✅ | Jest unitário + integração (domínio, service, HTTP, Prisma, OpenSearch) |
+| [RNF08](./requisitos-funcionais-nao-funcionais.md#rnf08--qualidade-de-código) | ✅ | Padrões em [arquitetura.md](./arquitetura.md); módulo `articles` implementado |
 | [RNF09](./requisitos-funcionais-nao-funcionais.md#rnf09--escalabilidade) | 📄 | Arquitetura AWS — [§3.3](#33-arquitetura-proposta-para-produção-aws) |
-| [RNF10](./requisitos-funcionais-nao-funcionais.md#rnf10--busca-e-persistência) | 🔜 | PG pronto; OpenSearch no Docker; integração na API pendente — [§3.2](#32-padrão-de-sincronização-banco--busca) |
+| [RNF10](./requisitos-funcionais-nao-funcionais.md#rnf10--busca-e-persistência) | ✅ | PG fonte de verdade; OpenSearch busca (`q`) e indexação síncrona na ingestão — [§3.2](#32-padrão-de-sincronização-banco--busca) |
 | [RNF11](./requisitos-funcionais-nao-funcionais.md#rnf11--observabilidade) | 📄 | CloudWatch + X-Ray (produção) — [§3.3](#33-arquitetura-proposta-para-produção-aws) |
-| [RNF12](./requisitos-funcionais-nao-funcionais.md#rnf12--segurança) | 🔜 | API Key + guards — pendentes no módulo `articles` |
-| [RNF13](./requisitos-funcionais-nao-funcionais.md#rnf13--manutenibilidade) | 🔜 | Estrutura modular definida; repositórios pendentes |
+| [RNF12](./requisitos-funcionais-nao-funcionais.md#rnf12--segurança) | ✅ | `ApiKeyGuard` (`X-API-Key` / `INGEST_API_KEY`); validação de DTOs |
+| [RNF13](./requisitos-funcionais-nao-funcionais.md#rnf13--manutenibilidade) | ✅ | Módulo `articles` com ports/adapters e repositórios Prisma |
 | [RNF14](./requisitos-funcionais-nao-funcionais.md#rnf14--documentação) | ✅ | README, SDD, arquitetura, requisitos |
 | [RNF15](./requisitos-funcionais-nao-funcionais.md#rnf15--spec-driven-development) | ✅ | Este documento |
 | [RNF16](./requisitos-funcionais-nao-funcionais.md#rnf16--uso-responsável-de-ia) | ✅ | [uso-de-ia.md](./uso-de-ia.md) |
@@ -199,7 +199,7 @@ Campos `keyword`: `category`, `slug`, `author`.
 
 ### 3.2 Padrão de sincronização banco ↔ busca
 
-**Local (a implementar no módulo `articles`):**
+**Local (implementado no módulo `articles`):**
 
 ```
 POST/PUT → ArticlesService → save(PG) → index(OpenSearch)
@@ -396,9 +396,11 @@ Header: X-API-Key: <INGEST_API_KEY>
 }
 ```
 
-**Resposta 201** — artigo criado e indexado.  
+**Resposta 201** — artigo criado e indexado (inclui `id` e `publishedAt` nullable).  
 **Resposta 401** — chave inválida.  
-**Resposta 422** — validação.
+**Resposta 400** — validação (`ValidationPipe`, alinhado aos GETs).
+
+`publishedAt` é opcional (omitido = rascunho). `author`, `category` e `tags` são strings; o backend faz find-or-create. O slug é gerado do título, com sufixo numérico se já existir.
 
 ### 4.4 Ingestão (atualizar)
 
@@ -407,8 +409,11 @@ PUT /articles/:id
 Header: X-API-Key: <INGEST_API_KEY>
 ```
 
-**Body** — campos parciais ou completos.  
-**Resposta 200** — artigo atualizado e reindexado.
+**Body** — campos parciais ou completos (`publishedAt: null` despublica). O slug **não** muda.  
+**Resposta 200** — artigo atualizado e reindexado.  
+**Resposta 401** — chave inválida.  
+**Resposta 400** — validação ou UUID inválido.  
+**Resposta 404** — artigo não encontrado.
 
 ### 4.5 Erros padronizados
 
@@ -422,6 +427,8 @@ Atende [RNF04](./requisitos-funcionais-nao-funcionais.md#rnf04--tratamento-de-er
   }
 }
 ```
+
+Códigos: `ARTICLE_NOT_FOUND` (404), `DUPLICATE_SLUG` (409, corrida rara na unique do slug).
 
 ---
 
@@ -455,8 +462,8 @@ Ver [§4 do documento de requisitos](./requisitos-funcionais-nao-funcionais.md#4
 5. [x] Health-check (`GET /api/v1/health`)
 6. [x] README, `.env.example` e documentação de arquitetura
 7. [x] Domínio + persistência do módulo `articles` (entidades, repositórios Prisma, seed)
-8. [ ] Endpoints RF06–RF08 (detalhe, ingestão); RF01–RF05 ✅
-9. [x] Integração OpenSearch — busca textual (RF03) ✅; indexação na ingestão (RF08) 🔜
+8. [x] Endpoints RF08 (ingestão); RF01–RF06 ✅
+9. [x] Integração OpenSearch — busca textual (RF03) ✅; indexação na ingestão (RF08) ✅
 10. [ ] Frontend Next.js ([RF11](./requisitos-funcionais-nao-funcionais.md#rf11--estados-da-interface))
 11. [x] Jest (testes de domínio e mappers)
 12. [ ] (Opcional) CI, cache, ingestão assíncrona via SQS

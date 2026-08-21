@@ -53,8 +53,8 @@ flowchart TB
 
 | Padrão | Decisão | Status atual |
 |--------|---------|--------------|
-| Repository + Services | **Implementar** no módulo `articles` | 🔜 Parcial (domínio + repos Prisma ✅; service/controller 🔜) |
-| CQRS leve | **Implementar** (PG listagem / OpenSearch `q`) | ✅ Busca (`q`) + filtros `category`/`tag` (RF04/RF05) |
+| Repository + Services | **Implementar** no módulo `articles` | ✅ `ArticlesService` + ports Prisma/OpenSearch |
+| CQRS leve | **Implementar** (PG listagem / OpenSearch `q`) | ✅ Busca (`q`) + filtros `category`/`tag` (RF04/RF05); ingestão indexa no OpenSearch |
 | Domain Events | **Não adotar** | ✅ Decisão fechada |
 | Outbox + SQS | **Documentar (prod)**; LocalStack pronto no Docker | 📄 Infra local ✅ / código 🔜 |
 | ADR | **Adotado** | ✅ `docs/adr/` |
@@ -99,7 +99,7 @@ flowchart TB
 
 ## 3. Estrutura de pastas
 
-> **Alvo** do módulo `articles`. Domínio e persistência implementados; presentation/application pendentes.
+> **Alvo** do módulo `articles`. Domínio, persistência, presentation e application implementados.
 
 ```
 src/
@@ -110,16 +110,16 @@ src/
 │
 ├── modules/
 │   └── articles/
-│       ├── articles.module.ts              # 🔜 pendente
+│       ├── articles.module.ts              # ✅
 │       │
-│       ├── presentation/                   # 🔜 pendente
+│       ├── presentation/                   # ✅
 │       │   ├── articles.controller.ts
 │       │   └── dto/
 │       │       ├── create-article.dto.ts
 │       │       ├── update-article.dto.ts
 │       │       └── list-articles-query.dto.ts
 │       │
-│       ├── application/                    # 🔜 pendente
+│       ├── application/                    # ✅
 │       │   └── articles.service.ts
 │       │
 │       ├── domain/                         # ✅ implementado
@@ -140,13 +140,13 @@ src/
 │       │       ├── article-not-found.exception.ts
 │       │       └── duplicate-slug.exception.ts
 │       │
-│       └── infrastructure/                 # ✅ parcial (Prisma ✅; OpenSearch ✅ busca / 🔜 ingestão)
+│       └── infrastructure/                 # ✅ Prisma + OpenSearch (busca e ingestão)
 │           ├── repositories/
 │           │   ├── prisma-article.repository.ts
 │           │   ├── prisma-author.repository.ts
 │           │   ├── prisma-category.repository.ts
 │           │   ├── prisma-tag.repository.ts
-│           │   └── opensearch-search.repository.ts  # 🔜
+│           │   └── opensearch-search.repository.ts
 │           └── mappers/
 │               ├── article.mapper.ts
 │               └── reference.mapper.ts
@@ -155,12 +155,12 @@ src/
 │   ├── prisma.module.ts
 │   └── prisma.service.ts
 │
-├── shared/                    # a implementar (filters, guards)
+├── shared/                    # filters e guards
 │   ├── presentation/
 │   │   ├── filters/
 │   │   │   └── domain-exception.filter.ts
 │   │   └── guards/
-│   │       └── api-key.guard.ts
+│   │       └── api-key.guard.ts           # ✅ RF08
 │   └── infrastructure/
 │       └── prisma/            # destino do PrismaModule
 │
@@ -236,7 +236,7 @@ Separação de **estratégias de leitura** por tipo de query — sem event sourc
 | Listagem/filtros sem `q` (`GET /articles`) | PostgreSQL |
 | Busca textual (`GET /articles?q=`) | OpenSearch |
 | Detalhe por slug | PostgreSQL (fonte de verdade) |
-| Criar / Atualizar | PostgreSQL → indexa no OpenSearch (síncrono local) |
+| Criar / Atualizar | PostgreSQL → indexa ou remove no OpenSearch conforme `publishedAt` (síncrono local) |
 
 Dois ports distintos:
 
@@ -245,11 +245,18 @@ Dois ports distintos:
 
 ### 4.4 Indexação — local vs produção
 
-**Local (a implementar):**
+**Local (implementado):**
 
 ```
-POST/PUT → ArticlesService → save(PG) → index(OpenSearch)
+POST (publicado) / PUT (mantém publicado) → ArticlesService → save(PG) → index(OpenSearch)
+PUT (despublica, publishedAt: null)      → ArticlesService → save(PG) → remove(OpenSearch)
 ```
+
+**Bootstrap na subida (`ArticlesSearchBootstrap`):**
+
+- Sempre executa `ensureIndex()` (cria índice se ausente).
+- Reindexação completa dos artigos publicados só quando `SEARCH_REINDEX_ON_STARTUP=true` (default em dev).
+- Em produção, usar `SEARCH_REINDEX_ON_STARTUP=false` e job separado para reindexação.
 
 **Produção (documentado):**
 
@@ -263,7 +270,10 @@ O padrão **Outbox** garante que nenhum artigo persistido seja perdido na fila. 
 
 ```
 Domain Exception → DomainExceptionFilter → HTTP Response padronizada
+ValidationPipe / ParseUUIDPipe → 400 Bad Request (default NestJS, alinhado ao SDD)
 ```
+
+Validação de entrada (`ValidationPipe`, `ParseUUIDPipe`) retorna **400 Bad Request**, alinhado ao SDD e ao default do NestJS — não usamos 422.
 
 ```json
 {
@@ -415,10 +425,10 @@ sequenceDiagram
 
 | Prática | Status | Observação |
 |---------|--------|------------|
-| **Arquitetura Hexagonal** | 🔜 | Ports/adapters no módulo `articles` |
-| **CQRS leve** | ✅ parcial | Busca textual (`q`) + filtros via OpenSearch; listagem/filtros PG (RF01/RF02/RF04/RF05) ✅ |
-| **Repository + Services** | 🔜 | `ArticlesService` + ports pendentes |
-| **Value Objects** | 🔜 | `Slug` previsto no domínio |
+| **Arquitetura Hexagonal** | ✅ | Ports/adapters no módulo `articles` |
+| **CQRS leve** | ✅ | Busca textual (`q`) + filtros via OpenSearch; listagem/filtros PG; ingestão indexa (RF08) |
+| **Repository + Services** | ✅ | `ArticlesService` + ports Prisma/OpenSearch |
+| **Value Objects** | ✅ | `Slug` no domínio |
 | **Domain Events** | ✅ Descartado | Orquestração direta no service |
 | **Outbox + SQS** | 📄 | LocalStack no Docker; worker só em prod |
 | **ADR** | ✅ Adotado | Registros em [docs/adr/](./adr/) |
@@ -431,13 +441,14 @@ sequenceDiagram
 
 ## 9. Decisões de infraestrutura
 
+
 | Componente | Local | Produção (AWS) |
 |------------|-------|----------------|
 | Runtime | NestJS + Fastify | ECS Fargate |
 | Banco | PostgreSQL (Docker) | RDS PostgreSQL |
 | Busca | OpenSearch (Docker) | OpenSearch Service |
 | AWS local | LocalStack SQS (Docker) | SQS gerenciado |
-| Indexação | Síncrona via service (planejado) | SQS + Lambda (assíncrona) |
+| Indexação | Síncrona via `ArticlesService` | SQS + Lambda (assíncrona) |
 | Config | `.env` | Secrets Manager / Parameter Store |
 
 Detalhes completos de produção estão na [seção 3.3 do SDD](./SDD.md#33-arquitetura-proposta-para-produção-aws).

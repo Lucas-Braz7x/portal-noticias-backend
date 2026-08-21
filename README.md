@@ -127,10 +127,10 @@ curl http://localhost:3000/api/v1/health
 | Método | Rota                     | Status          | Descrição                               |
 | ------ | ------------------------ | --------------- | --------------------------------------- |
 | `GET`  | `/api/v1/health`         | ✅ Implementado | Status da API e conexão com banco       |
-| `GET`  | `/api/v1/articles`       | ✅ Implementado | Listagem paginada (RF01/RF02); busca com `q` via OpenSearch (RF03); filtros `category`/`tag` pendentes |
-| `GET`  | `/api/v1/articles/:slug` | 🔜 Planejado    | Detalhe de um artigo                    |
-| `POST` | `/api/v1/articles`       | 🔜 Planejado    | Criar artigo (requer `X-API-Key`)       |
-| `PUT`  | `/api/v1/articles/:id`   | 🔜 Planejado    | Atualizar artigo (requer `X-API-Key`)   |
+| `GET`  | `/api/v1/articles`       | ✅ Implementado | Listagem paginada (RF01/RF02); busca com `q` via OpenSearch (RF03); filtros `category`/`tag` (RF04/RF05) |
+| `GET`  | `/api/v1/articles/:slug` | ✅ Implementado | Detalhe de artigo publicado (RF06)      |
+| `POST` | `/api/v1/articles`       | ✅ Implementado | Criar artigo (requer `X-API-Key`)       |
+| `PUT`  | `/api/v1/articles/:id`   | ✅ Implementado | Atualizar artigo (requer `X-API-Key`)   |
 
 Contratos completos na [especificação SDD](docs/SDD.md#4-contratos-da-api).
 
@@ -144,10 +144,10 @@ O projeto segue **DDD pragmático** com camadas bem definidas:
 Presentation → Application → Domain ← Infrastructure
 ```
 
-- **Controllers** — entrada HTTP, DTOs, validação ✅ (`GET /articles`)
+- **Controllers** — entrada HTTP, DTOs, validação, `ApiKeyGuard` na ingestão ✅
 - **ArticlesService** — orquestração direta (PostgreSQL + OpenSearch) ✅
 - **Domain** — entidades, value objects, interfaces de repositório ✅
-- **Infrastructure** — Prisma ✅, OpenSearch ✅ (busca com `q`); filtros category/tag e ingestão 🔜
+- **Infrastructure** — Prisma ✅, OpenSearch ✅ (busca com `q` e indexação na ingestão)
 
 **CQRS leve:** listagem/filtros no PostgreSQL; busca textual no OpenSearch. Domain Events não adotados — ver [docs/arquitetura.md](docs/arquitetura.md).
 
@@ -224,12 +224,13 @@ Arquivos excluídos da cobertura unitária: bootstrap (`main.ts`, módulos Nest)
 | `NODE_ENV`            | Ambiente                         | `development`           |
 | `DATABASE_URL`        | Connection string PostgreSQL     | ver `.env.example`      |
 | `INGEST_API_KEY`      | Chave para endpoints de ingestão | —                       |
-| `OPENSEARCH_NODE`     | URL do OpenSearch                | `http://localhost:9200` |
-| `AWS_ENDPOINT_URL`    | Endpoint LocalStack              | `http://localhost:4566` |
+| `OPENSEARCH_NODE`              | URL do OpenSearch                | `http://localhost:9200` |
+| `SEARCH_REINDEX_ON_STARTUP`    | Reindexar artigos publicados na subida da API | `true` (dev); `false` em prod |
+| `AWS_ENDPOINT_URL`             | Endpoint LocalStack              | `http://localhost:4566` |
 | `AWS_REGION`          | Região AWS local                 | `us-east-1`             |
 | `SQS_INDEX_QUEUE_URL` | Fila SQS para indexação          | ver `.env.example`      |
 
-> `OPENSEARCH_NODE` já está no `.env.example`, mas o cliente OpenSearch na API será implementado no módulo `articles`.
+> `SEARCH_REINDEX_ON_STARTUP=true` reindexa todos os artigos publicados a cada subida (útil em dev). Em produção, use `false` e execute reindexação via job dedicado.
 
 ---
 
