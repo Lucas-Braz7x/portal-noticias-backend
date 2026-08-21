@@ -1,18 +1,11 @@
 import { Client } from '@opensearch-project/opensearch';
 import { OpenSearchSearchRepository } from '@/modules/articles/infrastructure/repositories/opensearch-search.repository';
 import { ARTICLES_INDEX } from '@/modules/articles/infrastructure/opensearch/articles-index.constants';
-
-async function isOpenSearchAvailable(): Promise<boolean> {
-  const node = process.env.OPENSEARCH_NODE ?? 'http://localhost:9200';
-  const client = new Client({ node });
-
-  try {
-    await client.cluster.health({ timeout: '2s' });
-    return true;
-  } catch {
-    return false;
-  }
-}
+import {
+  clearOpenSearchIndex,
+  getOpenSearchNode,
+  isOpenSearchAvailable,
+} from '../../../../helpers/opensearch.helper';
 
 describe('OpenSearchSearchRepository (integration)', () => {
   let client: Client;
@@ -28,7 +21,7 @@ describe('OpenSearchSearchRepository (integration)', () => {
       );
     }
 
-    const node = process.env.OPENSEARCH_NODE ?? 'http://localhost:9200';
+    const node = getOpenSearchNode();
     client = new Client({ node });
     repository = new OpenSearchSearchRepository(client);
 
@@ -42,12 +35,7 @@ describe('OpenSearchSearchRepository (integration)', () => {
   });
 
   afterEach(async () => {
-    await client.deleteByQuery({
-      index: ARTICLES_INDEX,
-      body: { query: { match_all: {} } },
-      refresh: true,
-      wait_for_completion: true,
-    });
+    await clearOpenSearchIndex(client);
   });
 
   const createDocument = (overrides: Partial<{
