@@ -128,8 +128,16 @@ describe('ArticlesController (integration)', () => {
         summary: expect.any(String),
         publishedAt: expect.any(String),
         author: expect.any(String),
-        category: expect.any(String),
-        tags: expect.any(Array),
+        category: expect.objectContaining({
+          name: expect.any(String),
+          slug: expect.any(String),
+        }),
+        tags: expect.arrayContaining([
+          expect.objectContaining({
+            name: expect.any(String),
+            slug: expect.any(String),
+          }),
+        ]),
       }),
     );
   });
@@ -202,8 +210,16 @@ describe('ArticlesController (integration)', () => {
           content: 'Conteúdo completo',
           publishedAt: expect.any(String),
           author: expect.any(String),
-          category: expect.any(String),
-          tags: expect.any(Array),
+          category: expect.objectContaining({
+            name: expect.any(String),
+            slug: expect.any(String),
+          }),
+          tags: expect.arrayContaining([
+            expect.objectContaining({
+              name: expect.any(String),
+              slug: expect.any(String),
+            }),
+          ]),
         }),
       );
     });
@@ -448,8 +464,8 @@ describe('ArticlesController (integration)', () => {
         slug: string;
         title: string;
         author: string;
-        category: string;
-        tags: string[];
+        category: { name: string; slug: string };
+        tags: Array<{ name: string; slug: string }>;
         publishedAt: string;
         content: string;
       };
@@ -461,8 +477,8 @@ describe('ArticlesController (integration)', () => {
           summary: ingestPayload.summary,
           content: ingestPayload.content,
           author: 'Maria Silva',
-          category: 'Economia',
-          tags: ['Eleições'],
+          category: { name: 'Economia', slug: 'economia' },
+          tags: [{ name: 'Eleições', slug: 'eleicoes' }],
           publishedAt: '2026-01-15T10:00:00.000Z',
         }),
       );

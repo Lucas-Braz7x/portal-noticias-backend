@@ -84,11 +84,13 @@ describe('ArticlesService', () => {
     };
 
     categoriesRepository = {
+      findAll: jest.fn(),
       findBySlug: jest.fn(),
       findOrCreate: jest.fn(),
     };
 
     tagsRepository = {
+      findAll: jest.fn(),
       findBySlug: jest.fn(),
       findOrCreateMany: jest.fn(),
     };
@@ -147,8 +149,11 @@ describe('ArticlesService', () => {
           summary: article.summary,
           publishedAt: '2026-01-15T10:00:00.000Z',
           author: 'Maria Silva',
-          category: 'Política',
-          tags: ['economia', 'brasil'],
+          category: { name: 'Política', slug: 'politica' },
+          tags: [
+            { name: 'economia', slug: 'economia' },
+            { name: 'brasil', slug: 'brasil' },
+          ],
         },
       ]);
     });
@@ -306,8 +311,11 @@ describe('ArticlesService', () => {
         content: 'Conteúdo completo',
         publishedAt: '2026-01-15T10:00:00.000Z',
         author: 'Maria Silva',
-        category: 'Política',
-        tags: ['economia', 'brasil'],
+        category: { name: 'Política', slug: 'politica' },
+        tags: [
+          { name: 'economia', slug: 'economia' },
+          { name: 'brasil', slug: 'brasil' },
+        ],
       });
     });
 
@@ -393,8 +401,11 @@ describe('ArticlesService', () => {
         expect.objectContaining({
           title: createInput.title,
           author: 'Maria Silva',
-          category: 'Política',
-          tags: ['economia', 'brasil'],
+          category: { name: 'Política', slug: 'politica' },
+          tags: [
+            { name: 'economia', slug: 'economia' },
+            { name: 'brasil', slug: 'brasil' },
+          ],
           publishedAt: '2026-01-15T10:00:00.000Z',
         }),
       );
@@ -516,6 +527,41 @@ describe('ArticlesService', () => {
       ).rejects.toThrow(ArticleNotFoundException);
       expect(articlesRepository.update).not.toHaveBeenCalled();
       expect(searchRepository.index).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listCategories', () => {
+    it('returns categories mapped to reference items', async () => {
+      categoriesRepository.findAll.mockResolvedValue([
+        categoryEntity,
+        Category.create({
+          id: 'cat-2',
+          name: 'Economia',
+          slug: 'economia',
+        }),
+      ]);
+
+      const result = await service.listCategories();
+
+      expect(categoriesRepository.findAll).toHaveBeenCalled();
+      expect(result).toEqual([
+        { name: 'Política', slug: 'politica' },
+        { name: 'Economia', slug: 'economia' },
+      ]);
+    });
+  });
+
+  describe('listTags', () => {
+    it('returns tags mapped to reference items', async () => {
+      tagsRepository.findAll.mockResolvedValue(tagEntities);
+
+      const result = await service.listTags();
+
+      expect(tagsRepository.findAll).toHaveBeenCalled();
+      expect(result).toEqual([
+        { name: 'economia', slug: 'economia' },
+        { name: 'brasil', slug: 'brasil' },
+      ]);
     });
   });
 });

@@ -42,4 +42,19 @@ describe('PrismaTagRepository (integration)', () => {
     expect(tags[0].slugValue).toBe('ia');
     expect(tags[1].slugValue).toBe('next-js');
   });
+
+  it('findAll returns tags ordered by name', async () => {
+    const prisma = getTestPrisma();
+    await prisma.tag.createMany({
+      data: [
+        { name: 'Next.js', slug: 'nextjs' },
+        { name: 'AWS', slug: 'aws' },
+        { name: 'JavaScript', slug: 'javascript' },
+      ],
+    });
+
+    const tags = await repository.findAll();
+
+    expect(tags.map((tag) => tag.name)).toEqual(['AWS', 'JavaScript', 'Next.js']);
+  });
 });

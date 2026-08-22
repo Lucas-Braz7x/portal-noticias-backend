@@ -87,7 +87,7 @@ interface Article {
 }
 ```
 
-Na **API** (resposta e ingestão), `author`, `category` e `tags` continuam expostos como strings para o cliente. A normalização relacional é interna ao backend.
+Na **API de leitura** (listagem e detalhe), `category` e `tags` são objetos `{ name, slug }`; `author` permanece string. Na **ingestão** (`POST`/`PUT`), `author`, `category` e `tags` continuam como strings; o backend faz find-or-create. A normalização relacional é interna ao backend.
 
 ### 2.2 Banco relacional (PostgreSQL)
 
@@ -348,7 +348,17 @@ GET /articles
 
 ```json
 {
-  "data": [ { /* Article resumido */ } ],
+  "data": [
+    {
+      "slug": "titulo-do-artigo",
+      "title": "string",
+      "summary": "string",
+      "publishedAt": "2026-01-15T10:00:00.000Z",
+      "author": "string",
+      "category": { "name": "Política", "slug": "politica" },
+      "tags": [{ "name": "Eleições", "slug": "eleicoes" }]
+    }
+  ],
   "meta": {
     "page": 1,
     "limit": 10,
@@ -357,6 +367,8 @@ GET /articles
   }
 }
 ```
+
+Filtros `category` e `tag` aceitam **slug** (ex.: `politica`, `eleicoes`).
 
 > Com `q`: busca no OpenSearch. Sem `q`: consulta PostgreSQL.
 
@@ -373,7 +385,23 @@ GET /articles/:slug
 **Resposta 200** — objeto `Article` completo.  
 **Resposta 404** — artigo não encontrado.
 
-### 4.3 Ingestão (criar)
+### 4.3 Catálogo de categorias
+
+```
+GET /categories
+```
+
+**Resposta 200** — array de `{ name, slug }` ordenado por `name`.
+
+### 4.4 Catálogo de tags
+
+```
+GET /tags
+```
+
+**Resposta 200** — array de `{ name, slug }` ordenado por `name`.
+
+### 4.5 Ingestão (criar)
 
 Atende [RF08](./requisitos-funcionais-nao-funcionais.md#rf08--ingestão-de-artigos).
 
@@ -402,7 +430,7 @@ Header: X-API-Key: <INGEST_API_KEY>
 
 `publishedAt` é opcional (omitido = rascunho). `author`, `category` e `tags` são strings; o backend faz find-or-create. O slug é gerado do título, com sufixo numérico se já existir.
 
-### 4.4 Ingestão (atualizar)
+### 4.6 Ingestão (atualizar)
 
 ```
 PUT /articles/:id
@@ -415,7 +443,7 @@ Header: X-API-Key: <INGEST_API_KEY>
 **Resposta 400** — validação ou UUID inválido.  
 **Resposta 404** — artigo não encontrado.
 
-### 4.5 Erros padronizados
+### 4.7 Erros padronizados
 
 Atende [RNF04](./requisitos-funcionais-nao-funcionais.md#rnf04--tratamento-de-erros).
 

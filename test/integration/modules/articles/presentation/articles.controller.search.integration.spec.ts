@@ -212,13 +212,13 @@ describe('ArticlesController search (integration)', () => {
     expect(response.statusCode).toBe(200);
 
     const body = JSON.parse(response.body) as {
-      data: Array<{ category: string }>;
+      data: Array<{ category: { name: string } }>;
       meta: { total: number };
     };
 
     expect(body.meta.total).toBe(1);
     expect(body.data).toHaveLength(1);
-    expect(body.data[0].category).toBe('Tecnologia');
+    expect(body.data[0].category.name).toBe('Tecnologia');
   });
 
   it('GET /api/v1/articles?q= excludes draft articles', async () => {

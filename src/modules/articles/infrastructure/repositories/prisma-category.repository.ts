@@ -9,6 +9,14 @@ import { ReferenceMapper } from '../mappers/reference.mapper';
 export class PrismaCategoryRepository implements ICategoryRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  async findAll(): Promise<Category[]> {
+    const categories = await this.prisma.category.findMany({
+      orderBy: { name: 'asc' },
+    });
+
+    return categories.map(ReferenceMapper.toCategoryDomain);
+  }
+
   async findBySlug(slug: string): Promise<Category | null> {
     const category = await this.prisma.category.findUnique({
       where: { slug },

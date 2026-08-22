@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+import { ReferenceItemDto } from './reference-item.dto';
+
 export class ArticleDetailDto {
   @ApiProperty({ example: 'titulo-do-artigo' })
   slug!: string;
@@ -19,12 +21,18 @@ export class ArticleDetailDto {
   @ApiProperty({ example: 'Maria Silva' })
   author!: string;
 
-  @ApiProperty({ example: 'Política' })
-  category!: string;
+  @ApiProperty({
+    type: () => ReferenceItemDto,
+    example: { name: 'Política', slug: 'politica' },
+  })
+  category!: ReferenceItemDto;
 
   @ApiProperty({
-    example: ['Eleições', 'Paraná'],
-    type: [String],
+    type: [ReferenceItemDto],
+    example: [
+      { name: 'Eleições', slug: 'eleicoes' },
+      { name: 'Paraná', slug: 'parana' },
+    ],
   })
-  tags!: string[];
+  tags!: ReferenceItemDto[];
 }

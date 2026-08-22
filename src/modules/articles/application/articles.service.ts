@@ -27,6 +27,7 @@ import {
 import { Slug } from '../domain/value-objects/slug.vo';
 import { ArticleMapper } from '../infrastructure/mappers/article.mapper';
 import { ArticleResponseMapper } from '../presentation/mappers/article-response.mapper';
+import { ReferenceResponseMapper } from '../presentation/mappers/reference-response.mapper';
 
 export interface ListArticlesInput {
   q?: string;
@@ -195,6 +196,16 @@ export class ArticlesService {
     }
 
     return ArticleResponseMapper.toIngest(updated);
+  }
+
+  async listCategories() {
+    const categories = await this.categories.findAll();
+    return categories.map(ReferenceResponseMapper.toItem);
+  }
+
+  async listTags() {
+    const tags = await this.tags.findAll();
+    return tags.map(ReferenceResponseMapper.toItem);
   }
 
   private async ensureUniqueSlug(base: string): Promise<string> {

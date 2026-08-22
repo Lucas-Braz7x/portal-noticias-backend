@@ -12,6 +12,8 @@ export function setupSwagger(app: INestApplication): void {
     .setVersion('1.0')
     .addTag('health', 'Verificação de saúde da aplicação')
     .addTag('articles', 'Artigos publicados')
+    .addTag('categories', 'Categorias editoriais')
+    .addTag('tags', 'Tags editoriais')
     .addApiKey(
       {
         type: 'apiKey',

@@ -56,4 +56,23 @@ describe('PrismaCategoryRepository (integration)', () => {
     expect(persisted?.name).toBe('Tecnologia');
     expect(category.slugValue).toBe('tecnologia');
   });
+
+  it('findAll returns categories ordered by name', async () => {
+    const prisma = getTestPrisma();
+    await prisma.category.createMany({
+      data: [
+        { name: 'Tecnologia', slug: 'tecnologia' },
+        { name: 'Cultura', slug: 'cultura' },
+        { name: 'Economia', slug: 'economia' },
+      ],
+    });
+
+    const categories = await repository.findAll();
+
+    expect(categories.map((category) => category.name)).toEqual([
+      'Cultura',
+      'Economia',
+      'Tecnologia',
+    ]);
+  });
 });

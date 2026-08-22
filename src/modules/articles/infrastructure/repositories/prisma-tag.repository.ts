@@ -9,6 +9,14 @@ import { ReferenceMapper } from '../mappers/reference.mapper';
 export class PrismaTagRepository implements ITagRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  async findAll(): Promise<Tag[]> {
+    const tags = await this.prisma.tag.findMany({
+      orderBy: { name: 'asc' },
+    });
+
+    return tags.map(ReferenceMapper.toTagDomain);
+  }
+
   async findBySlug(slug: string): Promise<Tag | null> {
     const tag = await this.prisma.tag.findUnique({
       where: { slug },

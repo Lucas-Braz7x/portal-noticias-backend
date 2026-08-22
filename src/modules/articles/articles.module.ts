@@ -13,9 +13,11 @@ import { PrismaTagRepository } from './infrastructure/repositories/prisma-tag.re
 import { OpenSearchSearchRepository } from './infrastructure/repositories/opensearch-search.repository';
 import { ArticlesSearchBootstrap } from './infrastructure/search/articles-search.bootstrap';
 import { ArticlesController } from './presentation/articles.controller';
+import { CategoriesController } from './presentation/categories.controller';
+import { TagsController } from './presentation/tags.controller';
 
 @Module({
-  controllers: [ArticlesController],
+  controllers: [ArticlesController, CategoriesController, TagsController],
   providers: [
     opensearchClientProvider,
     OpenSearchSearchRepository,

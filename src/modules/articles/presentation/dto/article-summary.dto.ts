@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+import { ReferenceItemDto } from './reference-item.dto';
+
 export class ArticleSummaryDto {
   @ApiProperty({ example: 'titulo-do-artigo' })
   slug!: string;
@@ -18,16 +20,20 @@ export class ArticleSummaryDto {
 
   @ApiProperty({
     description:
-      'Nome legível da categoria. Para filtrar, use o slug em `?category=` (ex.: `politica`).',
-    example: 'Política',
+      'Categoria do artigo. Para filtrar, use o slug em `?category=` (ex.: `politica`).',
+    type: () => ReferenceItemDto,
+    example: { name: 'Política', slug: 'politica' },
   })
-  category!: string;
+  category!: ReferenceItemDto;
 
   @ApiProperty({
     description:
-      'Nomes legíveis das tags. Para filtrar, use o slug em `?tag=` (ex.: `eleicoes`).',
-    example: ['Eleições', 'Paraná'],
-    type: [String],
+      'Tags do artigo. Para filtrar, use o slug em `?tag=` (ex.: `eleicoes`).',
+    type: [ReferenceItemDto],
+    example: [
+      { name: 'Eleições', slug: 'eleicoes' },
+      { name: 'Paraná', slug: 'parana' },
+    ],
   })
-  tags!: string[];
+  tags!: ReferenceItemDto[];
 }
