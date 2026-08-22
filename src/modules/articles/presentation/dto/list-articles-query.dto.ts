@@ -1,7 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+
+function trimString(value: unknown): unknown {
+  return typeof value === 'string' ? value.trim() : value;
+}
+
+function defaultIfMissing<T>(value: unknown, defaultValue: T): T {
+  return (value ?? defaultValue) as T;
+}
 
 export class ListArticlesQueryDto {
   @ApiPropertyOptional({
@@ -10,7 +17,7 @@ export class ListArticlesQueryDto {
   })
   @IsOptional()
   @IsString()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => trimString(value))
   q?: string;
 
   @ApiPropertyOptional({
@@ -20,7 +27,7 @@ export class ListArticlesQueryDto {
   })
   @IsOptional()
   @IsString()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => trimString(value))
   category?: string;
 
   @ApiPropertyOptional({
@@ -30,7 +37,7 @@ export class ListArticlesQueryDto {
   })
   @IsOptional()
   @IsString()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => trimString(value))
   tag?: string;
 
   @ApiPropertyOptional({
@@ -41,7 +48,7 @@ export class ListArticlesQueryDto {
   })
   @IsOptional()
   @Type(() => Number)
-  @Transform(({ value }) => value ?? 1)
+  @Transform(({ value }) => defaultIfMissing(value, 1))
   @IsInt()
   @Min(1)
   page: number = 1;
@@ -55,7 +62,7 @@ export class ListArticlesQueryDto {
   })
   @IsOptional()
   @Type(() => Number)
-  @Transform(({ value }) => value ?? 10)
+  @Transform(({ value }) => defaultIfMissing(value, 10))
   @IsInt()
   @Min(1)
   @Max(50)

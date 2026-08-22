@@ -38,15 +38,17 @@ describe('OpenSearchSearchRepository (integration)', () => {
     await clearOpenSearchIndex(client);
   });
 
-  const createDocument = (overrides: Partial<{
-    id: string;
-    title: string;
-    summary: string;
-    content: string;
-    category: string;
-    tags: string[];
-    publishedAt: string | null;
-  }> = {}) => ({
+  const createDocument = (
+    overrides: Partial<{
+      id: string;
+      title: string;
+      summary: string;
+      content: string;
+      category: string;
+      tags: string[];
+      publishedAt: string | null;
+    }> = {},
+  ) => ({
     id: overrides.id ?? `test-${Date.now()}-${Math.random()}`,
     slug: 'artigo-teste',
     title: overrides.title ?? 'Artigo sobre tecnologia',
@@ -54,7 +56,7 @@ describe('OpenSearchSearchRepository (integration)', () => {
     content: overrides.content ?? 'Conteúdo completo do artigo',
     publishedAt:
       'publishedAt' in overrides
-        ? overrides.publishedAt ?? null
+        ? (overrides.publishedAt ?? null)
         : '2026-01-15T10:00:00.000Z',
     author: 'Maria Silva',
     category: overrides.category ?? 'tecnologia',

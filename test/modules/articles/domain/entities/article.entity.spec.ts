@@ -165,9 +165,9 @@ describe('Article', () => {
         tags: [],
       });
 
-      expect(() =>
-        article.update({ author: { id: '', name: '  ' } }),
-      ).toThrow('Author is required');
+      expect(() => article.update({ author: { id: '', name: '  ' } })).toThrow(
+        'Author is required',
+      );
     });
 
     it('throws when updated category is invalid', () => {

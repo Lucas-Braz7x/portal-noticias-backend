@@ -1,11 +1,6 @@
 import { randomUUID } from 'crypto';
 import { execSync } from 'child_process';
-import {
-  existsSync,
-  readFileSync,
-  unlinkSync,
-  writeFileSync,
-} from 'fs';
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { PrismaClient } from '@prisma/client';
 
@@ -53,9 +48,7 @@ export async function dropTestSchema(schema: string): Promise<void> {
 
   try {
     await prisma.$connect();
-    await prisma.$executeRawUnsafe(
-      `DROP SCHEMA IF EXISTS "${schema}" CASCADE`,
-    );
+    await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
   } finally {
     await prisma.$disconnect();
   }
@@ -69,10 +62,7 @@ export function runMigrations(databaseUrl: string): void {
   });
 }
 
-export function persistTestSchema(
-  schema: string,
-  databaseUrl: string,
-): void {
+export function persistTestSchema(schema: string, databaseUrl: string): void {
   writeFileSync(
     TEST_SCHEMA_FILE,
     JSON.stringify({ schema, databaseUrl }),

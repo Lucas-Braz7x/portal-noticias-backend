@@ -200,12 +200,14 @@ export class ArticlesService {
 
   async listCategories() {
     const categories = await this.categories.findAll();
-    return categories.map(ReferenceResponseMapper.toItem);
+    return categories.map((category) =>
+      ReferenceResponseMapper.toItem(category),
+    );
   }
 
   async listTags() {
     const tags = await this.tags.findAll();
-    return tags.map(ReferenceResponseMapper.toItem);
+    return tags.map((tag) => ReferenceResponseMapper.toItem(tag));
   }
 
   private async ensureUniqueSlug(base: string): Promise<string> {

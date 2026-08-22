@@ -55,6 +55,10 @@ describe('PrismaTagRepository (integration)', () => {
 
     const tags = await repository.findAll();
 
-    expect(tags.map((tag) => tag.name)).toEqual(['AWS', 'JavaScript', 'Next.js']);
+    expect(tags.map((tag) => tag.name)).toEqual([
+      'AWS',
+      'JavaScript',
+      'Next.js',
+    ]);
   });
 });

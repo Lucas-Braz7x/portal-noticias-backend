@@ -98,7 +98,7 @@ export class OpenSearchSearchRepository implements ISearchRepository {
       .map((hit) => (hit as { _id?: string })._id)
       .filter((id): id is string => Boolean(id));
     const total =
-      typeof hits.total === 'number' ? hits.total : hits.total?.value ?? 0;
+      typeof hits.total === 'number' ? hits.total : (hits.total?.value ?? 0);
 
     return { ids, total };
   }

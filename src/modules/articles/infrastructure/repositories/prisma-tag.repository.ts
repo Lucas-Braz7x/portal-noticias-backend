@@ -14,7 +14,7 @@ export class PrismaTagRepository implements ITagRepository {
       orderBy: { name: 'asc' },
     });
 
-    return tags.map(ReferenceMapper.toTagDomain);
+    return tags.map((tag) => ReferenceMapper.toTagDomain(tag));
   }
 
   async findBySlug(slug: string): Promise<Tag | null> {

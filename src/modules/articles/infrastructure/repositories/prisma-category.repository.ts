@@ -14,7 +14,9 @@ export class PrismaCategoryRepository implements ICategoryRepository {
       orderBy: { name: 'asc' },
     });
 
-    return categories.map(ReferenceMapper.toCategoryDomain);
+    return categories.map((category) =>
+      ReferenceMapper.toCategoryDomain(category),
+    );
   }
 
   async findBySlug(slug: string): Promise<Category | null> {

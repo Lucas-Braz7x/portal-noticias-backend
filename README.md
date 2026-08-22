@@ -8,15 +8,15 @@ Construída com **NestJS + Fastify**, **Prisma + PostgreSQL** e **OpenSearch**, 
 
 ## Stack
 
-| Camada    | Tecnologia          |
-| --------- | ------------------- |
+| Camada    | Tecnologia                      |
+| --------- | ------------------------------- |
 | Runtime   | Node.js 22 (recomendado) ou 20+ |
-| Framework | NestJS 11 + Fastify |
-| ORM       | Prisma              |
-| Banco     | PostgreSQL 16       |
-| Busca     | OpenSearch 2.x      |
-| AWS local | LocalStack (SQS)    |
-| Linguagem | TypeScript          |
+| Framework | NestJS 11 + Fastify             |
+| ORM       | Prisma                          |
+| Banco     | PostgreSQL 16                   |
+| Busca     | OpenSearch 2.x                  |
+| AWS local | LocalStack (SQS)                |
+| Linguagem | TypeScript                      |
 
 ---
 
@@ -101,36 +101,36 @@ curl http://localhost:3000/api/v1/health
 
 ## Scripts disponíveis
 
-| Script                 | Descrição                                |
-| ---------------------- | ---------------------------------------- |
-| `yarn start:dev`       | Inicia em modo watch                     |
-| `yarn build`           | Compila para `dist/`                     |
-| `yarn start:prod`      | Executa build de produção                |
-| `yarn lint`            | ESLint (flat config)                     |
-| `yarn lint:fix`        | ESLint com correção automática           |
-| `yarn format`          | Formata código com Prettier              |
-| `yarn format:check`    | Verifica formatação sem alterar arquivos |
-| `yarn test`            | Executa testes unitários                 |
-| `yarn test:cov`        | Testes unitários com cobertura (mínimo global 75%) |
-| `yarn test:watch`      | Testes unitários em modo watch           |
-| `yarn test:integration`| Repositórios Prisma com PostgreSQL real |
-| `yarn test:all`        | Unitários + integração                   |
-| `yarn prisma:migrate`  | Cria/aplica migrations                   |
-| `yarn prisma:studio`   | Abre Prisma Studio                       |
-| `yarn prisma:generate` | Gera Prisma Client e docs HTML do schema |
-| `yarn prisma:docs`     | Serve a referência HTML em `localhost:5858` |
+| Script                  | Descrição                                          |
+| ----------------------- | -------------------------------------------------- |
+| `yarn start:dev`        | Inicia em modo watch                               |
+| `yarn build`            | Compila para `dist/`                               |
+| `yarn start:prod`       | Executa build de produção                          |
+| `yarn lint`             | ESLint (flat config)                               |
+| `yarn lint:fix`         | ESLint com correção automática                     |
+| `yarn format`           | Formata código com Prettier                        |
+| `yarn format:check`     | Verifica formatação sem alterar arquivos           |
+| `yarn test`             | Executa testes unitários                           |
+| `yarn test:cov`         | Testes unitários com cobertura (mínimo global 75%) |
+| `yarn test:watch`       | Testes unitários em modo watch                     |
+| `yarn test:integration` | Repositórios Prisma com PostgreSQL real            |
+| `yarn test:all`         | Unitários + integração                             |
+| `yarn prisma:migrate`   | Cria/aplica migrations                             |
+| `yarn prisma:studio`    | Abre Prisma Studio                                 |
+| `yarn prisma:generate`  | Gera Prisma Client e docs HTML do schema           |
+| `yarn prisma:docs`      | Serve a referência HTML em `localhost:5858`        |
 
 ---
 
 ## Endpoints
 
-| Método | Rota                     | Status          | Descrição                               |
-| ------ | ------------------------ | --------------- | --------------------------------------- |
-| `GET`  | `/api/v1/health`         | ✅ Implementado | Status da API e conexão com banco       |
+| Método | Rota                     | Status          | Descrição                                                                                                |
+| ------ | ------------------------ | --------------- | -------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/v1/health`         | ✅ Implementado | Status da API e conexão com banco                                                                        |
 | `GET`  | `/api/v1/articles`       | ✅ Implementado | Listagem paginada (RF01/RF02); busca com `q` via OpenSearch (RF03); filtros `category`/`tag` (RF04/RF05) |
-| `GET`  | `/api/v1/articles/:slug` | ✅ Implementado | Detalhe de artigo publicado (RF06)      |
-| `POST` | `/api/v1/articles`       | ✅ Implementado | Criar artigo (requer `X-API-Key`)       |
-| `PUT`  | `/api/v1/articles/:id`   | ✅ Implementado | Atualizar artigo (requer `X-API-Key`)   |
+| `GET`  | `/api/v1/articles/:slug` | ✅ Implementado | Detalhe de artigo publicado (RF06)                                                                       |
+| `POST` | `/api/v1/articles`       | ✅ Implementado | Criar artigo (requer `X-API-Key`)                                                                        |
+| `PUT`  | `/api/v1/articles/:id`   | ✅ Implementado | Atualizar artigo (requer `X-API-Key`)                                                                    |
 
 Contratos completos na [especificação SDD](docs/SDD.md#4-contratos-da-api).
 
@@ -165,17 +165,17 @@ Documentação completa: [docs/arquitetura.md](docs/arquitetura.md)
 | [docs/prisma-schema/index.html](docs/prisma-schema/index.html)                               | Referência HTML do schema Prisma (models, campos, relações)        |
 | [docs/diagramas/diagrama-eer.png](docs/diagramas/diagrama-eer.png)                           | Diagrama EER do banco relacional                                   |
 | [docs/adr/](docs/adr/)                                                                       | Architecture Decision Records (ADRs)                               |
-| [docs/uso-de-ia.md](docs/uso-de-ia.md)                                                       | Uso de IA no desenvolvimento (RNF16)                                 |
+| [docs/uso-de-ia.md](docs/uso-de-ia.md)                                                       | Uso de IA no desenvolvimento (RNF16)                               |
 
 ### Schema Prisma e diagrama EER
 
 O modelo relacional está documentado em três formatos complementares:
 
-| Recurso | Descrição |
-| ------- | --------- |
-| [`prisma/schema.prisma`](prisma/schema.prisma) | Fonte da verdade — models, relações e comentários `///` |
-| [`docs/prisma-schema/index.html`](docs/prisma-schema/index.html) | Referência HTML interativa (models, campos, operações do client) |
-| [`docs/diagramas/diagrama-eer.png`](docs/diagramas/diagrama-eer.png) | Diagrama EER visual do banco relacional |
+| Recurso                                                              | Descrição                                                        |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| [`prisma/schema.prisma`](prisma/schema.prisma)                       | Fonte da verdade — models, relações e comentários `///`          |
+| [`docs/prisma-schema/index.html`](docs/prisma-schema/index.html)     | Referência HTML interativa (models, campos, operações do client) |
+| [`docs/diagramas/diagrama-eer.png`](docs/diagramas/diagrama-eer.png) | Diagrama EER visual do banco relacional                          |
 
 Os comentários `///` alimentam o IntelliSense do Prisma Client e a referência HTML gerada pelo [`prisma-docs-generator`](https://github.com/pantharshit00/prisma-docs-generator).
 
@@ -196,10 +196,10 @@ Também é possível abrir diretamente [`docs/prisma-schema/index.html`](docs/pr
 
 Duas suites **Jest**, com responsabilidades distintas (sem duplicar mock + banco no mesmo cenário):
 
-| Suite | Comando | Escopo |
-|-------|---------|--------|
-| Unitário | `yarn test` / `yarn test:cov` | Domínio, mappers, ArticlesService (mocks), health |
-| Integração | `yarn test:integration` | Repositórios Prisma com PostgreSQL real (schema isolado) |
+| Suite      | Comando                       | Escopo                                                   |
+| ---------- | ----------------------------- | -------------------------------------------------------- |
+| Unitário   | `yarn test` / `yarn test:cov` | Domínio, mappers, ArticlesService (mocks), health        |
+| Integração | `yarn test:integration`       | Repositórios Prisma com PostgreSQL real (schema isolado) |
 
 ```bash
 yarn test              # unitários (pre-commit)
@@ -220,12 +220,12 @@ Arquivos excluídos da cobertura unitária: bootstrap (`main.ts`, módulos Nest)
 
 O pipeline em [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda em **push** e **pull request** para `main`/`master`, com **Node.js 22** e quatro jobs em paralelo:
 
-| Job | Comando(s) | Infra |
-|-----|------------|-------|
-| `quality` | `yarn lint`, `yarn format:check` | — |
-| `unit` | `yarn test:cov` | — |
-| `build` | `yarn build` | — |
-| `integration` | `yarn test:integration` | PostgreSQL + OpenSearch (`docker compose`) |
+| Job           | Comando(s)                       | Infra                                      |
+| ------------- | -------------------------------- | ------------------------------------------ |
+| `quality`     | `yarn lint`, `yarn format:check` | —                                          |
+| `unit`        | `yarn test:cov`                  | —                                          |
+| `build`       | `yarn build`                     | —                                          |
+| `integration` | `yarn test:integration`          | PostgreSQL + OpenSearch (`docker compose`) |
 
 Para reproduzir localmente os mesmos passos do CI:
 
@@ -240,17 +240,17 @@ yarn test:integration
 
 ## Variáveis de ambiente
 
-| Variável              | Descrição                        | Default                 |
-| --------------------- | -------------------------------- | ----------------------- |
-| `PORT`                | Porta da API                     | `3000`                  |
-| `NODE_ENV`            | Ambiente                         | `development`           |
-| `DATABASE_URL`        | Connection string PostgreSQL     | ver `.env.example`      |
-| `INGEST_API_KEY`      | Chave para endpoints de ingestão | —                       |
-| `OPENSEARCH_NODE`              | URL do OpenSearch                | `http://localhost:9200` |
-| `SEARCH_REINDEX_ON_STARTUP`    | Reindexar artigos publicados na subida da API | `true` (dev); `false` em prod |
-| `AWS_ENDPOINT_URL`             | Endpoint LocalStack              | `http://localhost:4566` |
-| `AWS_REGION`          | Região AWS local                 | `us-east-1`             |
-| `SQS_INDEX_QUEUE_URL` | Fila SQS para indexação          | ver `.env.example`      |
+| Variável                    | Descrição                                     | Default                       |
+| --------------------------- | --------------------------------------------- | ----------------------------- |
+| `PORT`                      | Porta da API                                  | `3000`                        |
+| `NODE_ENV`                  | Ambiente                                      | `development`                 |
+| `DATABASE_URL`              | Connection string PostgreSQL                  | ver `.env.example`            |
+| `INGEST_API_KEY`            | Chave para endpoints de ingestão              | —                             |
+| `OPENSEARCH_NODE`           | URL do OpenSearch                             | `http://localhost:9200`       |
+| `SEARCH_REINDEX_ON_STARTUP` | Reindexar artigos publicados na subida da API | `true` (dev); `false` em prod |
+| `AWS_ENDPOINT_URL`          | Endpoint LocalStack                           | `http://localhost:4566`       |
+| `AWS_REGION`                | Região AWS local                              | `us-east-1`                   |
+| `SQS_INDEX_QUEUE_URL`       | Fila SQS para indexação                       | ver `.env.example`            |
 
 > `SEARCH_REINDEX_ON_STARTUP=true` reindexa todos os artigos publicados a cada subida (útil em dev). Em produção, use `false` e execute reindexação via job dedicado.
 
@@ -297,14 +297,14 @@ Este projeto segue **[Conventional Commits](https://www.conventionalcommits.org/
 [corpo opcional]
 ```
 
-| Tipo        | Uso                                              |
-| ----------- | ------------------------------------------------ |
-| `feat`      | Nova funcionalidade                              |
-| `fix`       | Correção de bug                                  |
-| `docs`      | Documentação                                     |
-| `test`      | Testes                                           |
-| `chore`     | Manutenção (deps, configs, tooling)              |
-| `refactor`  | Refatoração sem mudança de comportamento         |
+| Tipo       | Uso                                      |
+| ---------- | ---------------------------------------- |
+| `feat`     | Nova funcionalidade                      |
+| `fix`      | Correção de bug                          |
+| `docs`     | Documentação                             |
+| `test`     | Testes                                   |
+| `chore`    | Manutenção (deps, configs, tooling)      |
+| `refactor` | Refatoração sem mudança de comportamento |
 
 Exemplos do histórico: `feat(articles): add prisma repositories`, `fix(build): prevent empty dist output`.
 
