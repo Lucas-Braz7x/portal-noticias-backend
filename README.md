@@ -10,7 +10,7 @@ Construída com **NestJS + Fastify**, **Prisma + PostgreSQL** e **OpenSearch**, 
 
 | Camada    | Tecnologia          |
 | --------- | ------------------- |
-| Runtime   | Node.js 20+         |
+| Runtime   | Node.js 22 (recomendado) ou 20+ |
 | Framework | NestJS 11 + Fastify |
 | ORM       | Prisma              |
 | Banco     | PostgreSQL 16       |
@@ -22,7 +22,7 @@ Construída com **NestJS + Fastify**, **Prisma + PostgreSQL** e **OpenSearch**, 
 
 ## Pré-requisitos
 
-- Node.js 20+
+- Node.js 22 (recomendado) ou 20+
 - Yarn 1.22+
 - Docker e Docker Compose
 
@@ -210,9 +210,31 @@ yarn test:integration  # repositórios — requer docker compose up -d
 
 Estratégia completa (mock vs banco, o que testar em cada camada): [docs/arquitetura.md §5](docs/arquitetura.md#5-tdd--estratégia-de-testes).
 
-O **[Husky](https://typicode.github.io/husky/)** executa `yarn test:cov` no **pre-commit** — apenas unitários.
+O **[Husky](https://typicode.github.io/husky/)** executa `yarn lint`, `yarn format:check` e `yarn test:cov` no **pre-commit**.
 
 Arquivos excluídos da cobertura unitária: bootstrap (`main.ts`, módulos Nest), interfaces de repositório no domínio e **implementações Prisma em `infrastructure/repositories/`** (cobertas por `yarn test:integration`).
+
+---
+
+## CI
+
+O pipeline em [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda em **push** e **pull request** para `main`/`master`, com **Node.js 22** e quatro jobs em paralelo:
+
+| Job | Comando(s) | Infra |
+|-----|------------|-------|
+| `quality` | `yarn lint`, `yarn format:check` | — |
+| `unit` | `yarn test:cov` | — |
+| `build` | `yarn build` | — |
+| `integration` | `yarn test:integration` | PostgreSQL + OpenSearch (`docker compose`) |
+
+Para reproduzir localmente os mesmos passos do CI:
+
+```bash
+yarn lint && yarn format:check && yarn test:cov && yarn build
+docker compose up -d postgres opensearch
+# aguardar health dos serviços
+yarn test:integration
+```
 
 ---
 
@@ -256,7 +278,7 @@ portal-noticias-backend/
 │   ├── prisma-schema/        # referência HTML (gerada por yarn prisma:generate)
 │   └── diagramas/
 │       └── diagrama-eer.png  # diagrama EER do banco relacional
-├── .husky/                   # git hooks (pre-commit → yarn test:cov)
+├── .husky/                   # git hooks (pre-commit → lint, format, test:cov)
 ├── docker-compose.yml
 └── .env.example
 ```

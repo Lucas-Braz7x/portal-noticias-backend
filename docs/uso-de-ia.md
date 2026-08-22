@@ -123,7 +123,7 @@ API REST **NestJS 11 + Fastify**, **PostgreSQL** (persistência) e **OpenSearch*
 | OpenSearch | Cliente, índice, bootstrap (`ensureIndex` + reindex opcional), testes repo + HTTP |
 | Testes | ~105 unitários + ~59 integração (PG, OpenSearch, HTTP) |
 
-**Pendente / só documentado:** worker SQS assíncrono, CI pipeline, observabilidade CloudWatch/X-Ray, OpenAPI/Swagger.
+**Pendente / só documentado:** worker SQS assíncrono, observabilidade CloudWatch/X-Ray, OpenAPI/Swagger.
 
 → [SDD.md](./SDD.md) · [arquitetura.md](./arquitetura.md)
 
@@ -149,8 +149,7 @@ API REST **NestJS 11 + Fastify**, **PostgreSQL** (persistência) e **OpenSearch*
 
 **Próximos passos (diferenciais opcionais):**
 
-1. Pipeline CI (lint, test, test:integration com serviços Docker)
-2. Worker SQS + indexação assíncrona em produção (LocalStack já provisionado)
-3. Job de reindexação em produção (`SEARCH_REINDEX_ON_STARTUP=false`)
-4. OpenAPI/Swagger exposto na API
-5. Observabilidade (correlation ID, logs estruturados, CloudWatch)
+1. Worker SQS + indexação assíncrona em produção (LocalStack já provisionado)
+2. Job de reindexação em produção (`SEARCH_REINDEX_ON_STARTUP=false`)
+3. OpenAPI/Swagger exposto na API
+4. Observabilidade (correlation ID, logs estruturados, CloudWatch)

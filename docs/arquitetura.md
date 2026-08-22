@@ -315,7 +315,7 @@ Validação de entrada (`ValidationPipe`, `ParseUUIDPipe`) retorna **400 Bad Req
 | Integração | `yarn test:integration` | `test/integration/**/*.integration.spec.ts` | PostgreSQL (schema isolado) |
 | E2E | futuro | `test/e2e/` | Jest + Supertest |
 
-O pre-commit executa apenas `yarn test:cov` (unitários). Integração roda à parte e exige Postgres (`docker compose up -d`).
+O pre-commit executa `yarn lint`, `yarn format:check` e `yarn test:cov` (unitários). Integração roda à parte e exige Postgres (`docker compose up -d`).
 
 ### Mock vs banco — sem duplicidade
 

@@ -494,7 +494,8 @@ Ver [§4 do documento de requisitos](./requisitos-funcionais-nao-funcionais.md#4
 9. [x] Integração OpenSearch — busca textual (RF03) ✅; indexação na ingestão (RF08) ✅
 10. [ ] Frontend Next.js ([RF11](./requisitos-funcionais-nao-funcionais.md#rf11--estados-da-interface))
 11. [x] Jest (testes de domínio e mappers)
-12. [ ] (Opcional) CI, cache, ingestão assíncrona via SQS
+12. [x] CI (GitHub Actions — lint, format, testes unitários, build, integração)
+    [ ] cache de aplicação (diferencial); [ ] ingestão assíncrona via SQS
 
 Priorização completa: [§5 do documento de requisitos](./requisitos-funcionais-nao-funcionais.md#5-priorização).
 

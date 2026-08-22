@@ -19,7 +19,7 @@ alwaysApply: false
 | Integração | `yarn test:integration` | `test/integration/**/*.integration.spec.ts` | PostgreSQL real (schema isolado) |
 | E2E | futuro | `test/e2e/` | app + banco |
 
-Pre-commit (`yarn test:cov`) roda **apenas unitários**. Integração exige `docker compose up -d`.
+Pre-commit (`yarn lint`, `yarn format:check`, `yarn test:cov`). Integração exige `docker compose up -d`.
 
 ## Mock vs banco — sem duplicidade
 
