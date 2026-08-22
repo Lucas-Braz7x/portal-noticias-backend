@@ -139,8 +139,8 @@ describe('ArticlesController search (integration)', () => {
         title: article.title,
         summary: expect.any(String),
         author: 'Maria Silva',
-        category: 'Tecnologia',
-        tags: ['blockchain'],
+        category: { name: 'Tecnologia', slug: 'tecnologia' },
+        tags: [{ name: 'blockchain', slug: 'blockchain' }],
         publishedAt: expect.any(String),
       }),
     );
