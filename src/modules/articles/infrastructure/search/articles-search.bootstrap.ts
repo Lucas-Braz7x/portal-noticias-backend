@@ -9,6 +9,7 @@ import {
   ISearchRepository,
 } from '../../domain/repositories/search.repository';
 import { ArticleMapper } from '../mappers/article.mapper';
+import { isOpenSearchEnabled } from '../opensearch/opensearch.config';
 import { OpenSearchSearchRepository } from '../repositories/opensearch-search.repository';
 
 @Injectable()
@@ -23,6 +24,10 @@ export class ArticlesSearchBootstrap implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
+    if (!isOpenSearchEnabled(this.config)) {
+      return;
+    }
+
     await this.openSearchRepository.ensureIndex();
 
     const reindexOnStartup =

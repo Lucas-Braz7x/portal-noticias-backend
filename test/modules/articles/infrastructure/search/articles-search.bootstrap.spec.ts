@@ -62,7 +62,15 @@ describe('ArticlesSearchBootstrap', () => {
   });
 
   it('ensures index and reindexes published articles when flag is true', async () => {
-    configService.get.mockReturnValue('true');
+    configService.get.mockImplementation(
+      (key: string, defaultValue?: unknown) => {
+        if (key === 'SEARCH_REINDEX_ON_STARTUP') {
+          return 'true';
+        }
+
+        return defaultValue;
+      },
+    );
     articlesRepository.findMany.mockResolvedValue({
       data: [createPublishedArticle()],
       meta: { page: 1, limit: 100, total: 1, totalPages: 1 },
@@ -80,11 +88,37 @@ describe('ArticlesSearchBootstrap', () => {
   });
 
   it('ensures index only when reindex flag is false', async () => {
-    configService.get.mockReturnValue('false');
+    configService.get.mockImplementation(
+      (key: string, defaultValue?: unknown) => {
+        if (key === 'SEARCH_REINDEX_ON_STARTUP') {
+          return 'false';
+        }
+
+        return defaultValue;
+      },
+    );
 
     await bootstrap.onModuleInit();
 
     expect(openSearchRepository.ensureIndex).toHaveBeenCalledTimes(1);
+    expect(articlesRepository.findMany).not.toHaveBeenCalled();
+    expect(searchRepository.index).not.toHaveBeenCalled();
+  });
+
+  it('skips bootstrap when OpenSearch is disabled', async () => {
+    configService.get.mockImplementation(
+      (key: string, defaultValue?: unknown) => {
+        if (key === 'OPENSEARCH_ENABLED') {
+          return 'false';
+        }
+
+        return defaultValue;
+      },
+    );
+
+    await bootstrap.onModuleInit();
+
+    expect(openSearchRepository.ensureIndex).not.toHaveBeenCalled();
     expect(articlesRepository.findMany).not.toHaveBeenCalled();
     expect(searchRepository.index).not.toHaveBeenCalled();
   });
