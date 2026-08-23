@@ -240,17 +240,18 @@ yarn test:integration
 
 ## Variáveis de ambiente
 
-| Variável                    | Descrição                                     | Default                       |
-| --------------------------- | --------------------------------------------- | ----------------------------- |
-| `PORT`                      | Porta da API                                  | `3000`                        |
-| `NODE_ENV`                  | Ambiente                                      | `development`                 |
-| `DATABASE_URL`              | Connection string PostgreSQL                  | ver `.env.example`            |
-| `INGEST_API_KEY`            | Chave para endpoints de ingestão              | —                             |
-| `OPENSEARCH_NODE`           | URL do OpenSearch                             | `http://localhost:9200`       |
-| `SEARCH_REINDEX_ON_STARTUP` | Reindexar artigos publicados na subida da API | `true` (dev); `false` em prod |
-| `AWS_ENDPOINT_URL`          | Endpoint LocalStack                           | `http://localhost:4566`       |
-| `AWS_REGION`                | Região AWS local                              | `us-east-1`                   |
-| `SQS_INDEX_QUEUE_URL`       | Fila SQS para indexação                       | ver `.env.example`            |
+| Variável                    | Descrição                                                                                                                     | Default                       |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| `PORT`                      | Porta da API                                                                                                                  | `3000`                        |
+| `NODE_ENV`                  | Ambiente                                                                                                                      | `development`                 |
+| `DATABASE_URL`              | Connection string PostgreSQL                                                                                                  | ver `.env.example`            |
+| `INGEST_API_KEY`            | Chave para endpoints de ingestão                                                                                              | —                             |
+| `OPENSEARCH_ENABLED`        | Habilita OpenSearch (busca `q` com ranking e indexação). Se `false`, busca `q` usa fallback PostgreSQL (`ILIKE`, sem ranking) | `true`                        |
+| `OPENSEARCH_NODE`           | URL do OpenSearch                                                                                                             | `http://localhost:9200`       |
+| `SEARCH_REINDEX_ON_STARTUP` | Reindexar artigos publicados na subida da API                                                                                 | `true` (dev); `false` em prod |
+| `AWS_ENDPOINT_URL`          | Endpoint LocalStack                                                                                                           | `http://localhost:4566`       |
+| `AWS_REGION`                | Região AWS local                                                                                                              | `us-east-1`                   |
+| `SQS_INDEX_QUEUE_URL`       | Fila SQS para indexação                                                                                                       | ver `.env.example`            |
 
 > `SEARCH_REINDEX_ON_STARTUP=true` reindexa todos os artigos publicados a cada subida (útil em dev). Em produção, use `false` e execute reindexação via job dedicado.
 

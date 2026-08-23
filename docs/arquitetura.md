@@ -234,7 +234,8 @@ Separação de **estratégias de leitura** por tipo de query — sem event sourc
 | Operação | Fonte de dados |
 |----------|----------------|
 | Listagem/filtros sem `q` (`GET /articles`) | PostgreSQL |
-| Busca textual (`GET /articles?q=`) | OpenSearch |
+| Busca textual (`GET /articles?q=`) | OpenSearch (quando `OPENSEARCH_ENABLED=true`) |
+| Busca textual com OpenSearch desabilitado | PostgreSQL (`ILIKE` em título, resumo, conteúdo e tag; sem ranking) |
 | Detalhe por slug | PostgreSQL (fonte de verdade) |
 | Criar / Atualizar | PostgreSQL → indexa ou remove no OpenSearch conforme `publishedAt` (síncrono local) |
 
