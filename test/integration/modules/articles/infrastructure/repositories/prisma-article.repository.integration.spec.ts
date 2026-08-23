@@ -235,6 +235,178 @@ describe('PrismaArticleRepository (integration)', () => {
     expect(result.data[0].slug).toBe(matching.slug);
   });
 
+  it('findMany with q matches title, summary, content or tag name', async () => {
+    const prisma = getTestPrisma();
+    const { author, category, tags } = await seedArticleRefs(prisma);
+    const publishedAt = new Date('2026-01-01T00:00:00Z');
+
+    const byTitle = Article.create({
+      title: 'Blockchain no mercado financeiro',
+      summary: 'Resumo A',
+      content: 'Conteúdo A',
+      author,
+      category,
+      tags,
+      publishedAt,
+    });
+    const bySummary = Article.create({
+      title: 'Artigo B',
+      summary: 'Economia verde em alta',
+      content: 'Conteúdo B',
+      author,
+      category,
+      tags,
+      publishedAt,
+    });
+    const byContent = Article.create({
+      title: 'Artigo C',
+      summary: 'Resumo C',
+      content: 'Detalhes sobre inteligência artificial',
+      author,
+      category,
+      tags,
+      publishedAt,
+    });
+    const byTag = Article.create({
+      title: 'Artigo D',
+      summary: 'Resumo D',
+      content: 'Conteúdo D',
+      author,
+      category,
+      tags: [await seedTag(prisma, { name: 'Fintech', slug: 'fintech' })],
+      publishedAt,
+    });
+    const unrelated = Article.create({
+      title: 'Outro assunto',
+      summary: 'Resumo',
+      content: 'Conteúdo',
+      author,
+      category,
+      tags,
+      publishedAt,
+    });
+
+    await repository.save(byTitle);
+    await repository.save(bySummary);
+    await repository.save(byContent);
+    await repository.save(byTag);
+    await repository.save(unrelated);
+
+    const titleResult = await repository.findMany({
+      page: 1,
+      limit: 10,
+      q: 'blockchain',
+      publishedOnly: false,
+    });
+    expect(titleResult.data.map((article) => article.slug)).toEqual([
+      byTitle.slug,
+    ]);
+
+    const summaryResult = await repository.findMany({
+      page: 1,
+      limit: 10,
+      q: 'economia verde',
+      publishedOnly: false,
+    });
+    expect(summaryResult.data.map((article) => article.slug)).toEqual([
+      bySummary.slug,
+    ]);
+
+    const contentResult = await repository.findMany({
+      page: 1,
+      limit: 10,
+      q: 'inteligência artificial',
+      publishedOnly: false,
+    });
+    expect(contentResult.data.map((article) => article.slug)).toEqual([
+      byContent.slug,
+    ]);
+
+    const tagResult = await repository.findMany({
+      page: 1,
+      limit: 10,
+      q: 'fintech',
+      publishedOnly: false,
+    });
+    expect(tagResult.data.map((article) => article.slug)).toEqual([byTag.slug]);
+  });
+
+  it('findMany with q returns empty result when there is no match', async () => {
+    const prisma = getTestPrisma();
+    const { author, category, tags } = await seedArticleRefs(prisma);
+
+    await repository.save(
+      Article.create({
+        title: 'Artigo',
+        summary: 'Resumo',
+        content: 'Conteúdo',
+        author,
+        category,
+        tags,
+        publishedAt: new Date('2026-01-01T00:00:00Z'),
+      }),
+    );
+
+    const result = await repository.findMany({
+      page: 1,
+      limit: 10,
+      q: 'termo-inexistente',
+      publishedOnly: false,
+    });
+
+    expect(result.data).toEqual([]);
+    expect(result.meta.total).toBe(0);
+    expect(result.meta.totalPages).toBe(0);
+  });
+
+  it('findMany with q combines text search with category and tag filters', async () => {
+    const prisma = getTestPrisma();
+    const { author, tags } = await seedArticleRefs(prisma);
+    const sportsCategory = await seedCategory(prisma, {
+      name: 'Esportes',
+      slug: 'esportes',
+    });
+    const politicsCategory = await seedCategory(prisma, {
+      name: 'Política',
+      slug: 'politica',
+    });
+    const publishedAt = new Date('2026-01-01T00:00:00Z');
+
+    const matching = Article.create({
+      title: 'Futebol e tecnologia',
+      summary: 'Resumo',
+      content: 'Conteúdo',
+      author,
+      category: sportsCategory,
+      tags,
+      publishedAt,
+    });
+    const wrongCategory = Article.create({
+      title: 'Futebol na política',
+      summary: 'Resumo',
+      content: 'Conteúdo',
+      author,
+      category: politicsCategory,
+      tags,
+      publishedAt,
+    });
+
+    await repository.save(matching);
+    await repository.save(wrongCategory);
+
+    const result = await repository.findMany({
+      page: 1,
+      limit: 10,
+      q: 'futebol',
+      categorySlug: 'esportes',
+      tagSlug: 'ia',
+      publishedOnly: false,
+    });
+
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].slug).toBe(matching.slug);
+  });
+
   it('save creates article with nested tags', async () => {
     const prisma = getTestPrisma();
     const { author, category, tags } = await seedArticleRefs(prisma);

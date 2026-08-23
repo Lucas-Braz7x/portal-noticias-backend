@@ -1,6 +1,7 @@
 import { Article } from '../entities/article.entity';
 
 export interface ListArticlesParams {
+  q?: string;
   categorySlug?: string;
   tagSlug?: string;
   page: number;

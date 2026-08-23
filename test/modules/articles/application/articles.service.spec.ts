@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { Article } from '@/modules/articles/domain/entities/article.entity';
 import { Author } from '@/modules/articles/domain/entities/author.entity';
 import { Category } from '@/modules/articles/domain/entities/category.entity';
@@ -59,6 +60,7 @@ describe('ArticlesService', () => {
   let authorsRepository: jest.Mocked<IAuthorRepository>;
   let categoriesRepository: jest.Mocked<ICategoryRepository>;
   let tagsRepository: jest.Mocked<ITagRepository>;
+  let configService: jest.Mocked<ConfigService>;
   let service: ArticlesService;
 
   beforeEach(() => {
@@ -95,12 +97,23 @@ describe('ArticlesService', () => {
       findOrCreateMany: jest.fn(),
     };
 
+    configService = {
+      get: jest.fn((key: string, defaultValue?: unknown) => {
+        if (key === 'OPENSEARCH_ENABLED') {
+          return 'true';
+        }
+
+        return defaultValue;
+      }),
+    } as unknown as jest.Mocked<ConfigService>;
+
     service = new ArticlesService(
       articlesRepository,
       searchRepository,
       authorsRepository,
       categoriesRepository,
       tagsRepository,
+      configService,
     );
   });
 
@@ -213,6 +226,45 @@ describe('ArticlesService', () => {
         total: 1,
         totalPages: 1,
       });
+    });
+
+    it('searches via PostgreSQL when q is present and OpenSearch is disabled', async () => {
+      configService.get.mockImplementation(
+        (key: string, defaultValue?: unknown) => {
+          if (key === 'OPENSEARCH_ENABLED') {
+            return 'false';
+          }
+
+          return defaultValue;
+        },
+      );
+
+      const article = createPublishedArticle();
+      articlesRepository.findMany.mockResolvedValue({
+        data: [article],
+        meta: { page: 1, limit: 10, total: 1, totalPages: 1 },
+      });
+
+      const result = await service.list({
+        q: 'jornalismo',
+        category: 'politica',
+        tag: 'economia',
+        page: 1,
+        limit: 10,
+      });
+
+      expect(articlesRepository.findMany).toHaveBeenCalledWith({
+        page: 1,
+        limit: 10,
+        publishedOnly: true,
+        q: 'jornalismo',
+        categorySlug: 'politica',
+        tagSlug: 'economia',
+      });
+      expect(searchRepository.search).not.toHaveBeenCalled();
+      expect(articlesRepository.findByIds).not.toHaveBeenCalled();
+      expect(result.data).toHaveLength(1);
+      expect(result.meta.total).toBe(1);
     });
 
     it('returns correct totalPages from OpenSearch total', async () => {

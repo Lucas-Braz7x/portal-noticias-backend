@@ -203,6 +203,21 @@ export class PrismaArticleRepository implements IArticleRepository {
       };
     }
 
+    if (params.q) {
+      where.OR = [
+        { title: { contains: params.q, mode: 'insensitive' } },
+        { summary: { contains: params.q, mode: 'insensitive' } },
+        { content: { contains: params.q, mode: 'insensitive' } },
+        {
+          articleTags: {
+            some: {
+              tag: { name: { contains: params.q, mode: 'insensitive' } },
+            },
+          },
+        },
+      ];
+    }
+
     return where;
   }
 }

@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Article } from '../domain/entities/article.entity';
 import { Author } from '../domain/entities/author.entity';
 import { Category } from '../domain/entities/category.entity';
@@ -25,6 +26,7 @@ import {
   ITagRepository,
 } from '../domain/repositories/tag.repository';
 import { Slug } from '../domain/value-objects/slug.vo';
+import { isOpenSearchEnabled } from '../infrastructure/opensearch/opensearch.config';
 import { ArticleMapper } from '../infrastructure/mappers/article.mapper';
 import { ArticleResponseMapper } from '../presentation/mappers/article-response.mapper';
 import { ReferenceResponseMapper } from '../presentation/mappers/reference-response.mapper';
@@ -70,6 +72,7 @@ export class ArticlesService {
     private readonly categories: ICategoryRepository,
     @Inject(TAG_REPOSITORY)
     private readonly tags: ITagRepository,
+    private readonly config: ConfigService,
   ) {}
 
   async list(params: ListArticlesInput) {
@@ -78,26 +81,44 @@ export class ArticlesService {
     const tag = params.tag?.trim() || undefined;
 
     if (q) {
-      const { ids, total } = await this.search.search({
-        q,
-        category,
-        tag,
-        page: params.page,
-        limit: params.limit,
-      });
-
-      const articles = await this.articles.findByIds(ids, true);
-
-      return {
-        data: articles.map((article) =>
-          ArticleResponseMapper.toSummary(article),
-        ),
-        meta: {
+      if (isOpenSearchEnabled(this.config)) {
+        const { ids, total } = await this.search.search({
+          q,
+          category,
+          tag,
           page: params.page,
           limit: params.limit,
-          total,
-          totalPages: total === 0 ? 0 : Math.ceil(total / params.limit),
-        },
+        });
+
+        const articles = await this.articles.findByIds(ids, true);
+
+        return {
+          data: articles.map((article) =>
+            ArticleResponseMapper.toSummary(article),
+          ),
+          meta: {
+            page: params.page,
+            limit: params.limit,
+            total,
+            totalPages: total === 0 ? 0 : Math.ceil(total / params.limit),
+          },
+        };
+      }
+
+      const result = await this.articles.findMany({
+        page: params.page,
+        limit: params.limit,
+        publishedOnly: true,
+        q,
+        categorySlug: category,
+        tagSlug: tag,
+      });
+
+      return {
+        data: result.data.map((article) =>
+          ArticleResponseMapper.toSummary(article),
+        ),
+        meta: result.meta,
       };
     }
 
