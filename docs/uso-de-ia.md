@@ -98,7 +98,7 @@ Resumo das principais sessões — objetivo, prompt essencial e resultado. Sem d
 | Schema + seed | *"Schema Prisma Author/Category/Tag/Article/ArticleTag; seed 20+ artigos."* | Migrations incrementais; comentários `///` |
 | Domínio + repos | *"Módulo articles: entidades, ArticleRepository, PrismaArticleRepository paginado."* | Filtros RF04/RF05; mappers; exceções de domínio |
 | OpenSearch | *"Cliente OpenSearch, ISearchRepository, busca textual com multi_match e filtros."* | CQRS leve; `findByIds` preserva ordem de relevância |
-| Ingestão RF08 | *"POST/PUT com ApiKeyGuard, DTOs, create/update no ArticlesService, indexação síncrona."* | `search.remove()` na despublicação; find-or-create de refs |
+| Ingestão RF08 | *"POST/PUT com ApiKeyGuard, DTOs, create/update no ArticlesService, indexação sync ou async."* | `INDEXING_MODE`; Outbox `index_jobs`; worker no Render |
 | Guards/filters | *"ApiKeyGuard + DomainExceptionFilter global para erros padronizados."* | 400 via ValidationPipe default; 404/409 via filter |
 | Testes unitários | *"Testes para ArticleMapper e Slug VO."* | Casos de borda cobertos |
 | Testes integração | *"Integração PrismaArticleRepository com schema isolado."* | Setup global; cenários find/create/filtro |
@@ -118,12 +118,12 @@ API REST **NestJS 11 + Fastify**, **PostgreSQL** (persistência) e **OpenSearch*
 | Área | Implementado |
 |------|--------------|
 | Leitura | `GET /articles` (PG), `GET /articles?q=` (OpenSearch + hidratação PG), `GET /articles/:slug` |
-| Ingestão | `POST` / `PUT` com `X-API-Key`; indexação síncrona; `search.remove()` na despublicação |
+| Ingestão | `POST` / `PUT` com `X-API-Key`; sync (dev) ou async Outbox + Background Worker (Render) |
 | Segurança | `ApiKeyGuard`, validação DTO (`400`), `DomainExceptionFilter` (`404`, `409`) |
 | OpenSearch | Cliente, índice, bootstrap (`ensureIndex` + reindex opcional), testes repo + HTTP |
 | Testes | ~105 unitários + ~59 integração (PG, OpenSearch, HTTP) |
 
-**Pendente / só documentado:** worker SQS assíncrono, observabilidade CloudWatch/X-Ray, OpenAPI/Swagger.
+**Pendente / só documentado:** observabilidade CloudWatch/X-Ray, OpenAPI/Swagger, driver SQS real (LocalStack permanece simulação dev).
 
 → [SDD.md](./SDD.md) · [arquitetura.md](./arquitetura.md)
 
@@ -140,16 +140,20 @@ API REST **NestJS 11 + Fastify**, **PostgreSQL** (persistência) e **OpenSearch*
 | Integração separada | Confiança nos repos Prisma e OpenSearch | Requer Docker; suite mais lenta |
 | Reindex na subida (dev) | Índice consistente após restart local | Em prod exige flag `false` + job dedicado |
 | `search.remove()` na despublicação | Índice sem documentos órfãos | Operação extra no fluxo de update |
+| Outbox PG + Worker | Deploy simples no Render; transação atômica save+enqueue | Não é SQS “de verdade” em prod; consistência eventual na busca |
+| Cache sem Redis | Compatível com Render; HTTP `Cache-Control` + ISR + webhook | Sem invalidação instantânea se webhook falhar (TTL cobre) |
 
 ---
 
 ## 8. Premissas e próximos passos
 
-**Premissas:** frontend em repo separado; ingestão via `X-API-Key`; `published_at` nullable para rascunhos; arquitetura AWS documentada, worker fora do escopo local.
+**Premissas:** frontend em repo separado; ingestão via `X-API-Key`; `published_at` nullable para rascunhos; arquitetura AWS documentada como alternativa; produção Render usa Outbox PG.
 
 **Próximos passos (diferenciais opcionais):**
 
-1. Worker SQS + indexação assíncrona em produção (LocalStack já provisionado)
-2. Job de reindexação em produção (`SEARCH_REINDEX_ON_STARTUP=false`)
-3. OpenAPI/Swagger exposto na API
-4. Observabilidade (correlation ID, logs estruturados, CloudWatch)
+1. Job de reindexação em produção (`SEARCH_REINDEX_ON_STARTUP=false`)
+2. OpenAPI/Swagger exposto na API
+3. Observabilidade (correlation ID, logs estruturados, CloudWatch)
+4. Driver SQS real (além do Outbox Render)
+
+**Implementado (diferencial):** cache HTTP + invalidação ISR via webhook; ingestão assíncrona (Outbox + Background Worker).

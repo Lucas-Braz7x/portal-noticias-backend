@@ -56,7 +56,7 @@ flowchart TB
 | Repository + Services | **Implementar** no módulo `articles` | ✅ `ArticlesService` + ports Prisma/OpenSearch |
 | CQRS leve | **Implementar** (PG listagem / OpenSearch `q`) | ✅ Busca (`q`) + filtros `category`/`tag` (RF04/RF05); ingestão indexa no OpenSearch |
 | Domain Events | **Não adotar** | ✅ Decisão fechada |
-| Outbox + SQS | **Documentar (prod)**; LocalStack pronto no Docker | 📄 Infra local ✅ / código 🔜 |
+| Outbox + Worker | **Implementar** (Render) | ✅ `index_jobs` + `IndexWorkerService`; LocalStack SQS só simulação dev |
 | ADR | **Adotado** | ✅ `docs/adr/` |
 | Testcontainers, Idempotency | **Documentar ou adiar** | 📄 Adiado |
 
@@ -225,7 +225,9 @@ export class ArticlesService {
 }
 ```
 
-Em produção, a chamada `search.index()` seria substituída por publicação em **SQS** (documentado, não implementado localmente).
+Em produção Render (`INDEXING_MODE=async`), a API enfileira em `index_jobs` em vez de chamar `search.index()` diretamente. O **Background Worker** (`yarn start:worker`) consome a fila e revalida o cache do frontend.
+
+Em desenvolvimento (`INDEXING_MODE=sync`, default), o comportamento permanece síncrono.
 
 ### 4.3 CQRS leve (leitura vs escrita)
 
@@ -237,35 +239,35 @@ Separação de **estratégias de leitura** por tipo de query — sem event sourc
 | Busca textual (`GET /articles?q=`) | OpenSearch (quando `OPENSEARCH_ENABLED=true`) |
 | Busca textual com OpenSearch desabilitado | PostgreSQL (`ILIKE` em título, resumo, conteúdo e tag; sem ranking) |
 | Detalhe por slug | PostgreSQL (fonte de verdade) |
-| Criar / Atualizar | PostgreSQL → indexa ou remove no OpenSearch conforme `publishedAt` (síncrono local) |
+| Criar / Atualizar (sync) | PostgreSQL → indexa ou remove no OpenSearch conforme `publishedAt` |
+| Criar / Atualizar (async) | PostgreSQL + `index_jobs` → worker indexa/remove no OpenSearch |
 
 Dois ports distintos:
 
 - `IArticleRepository` — persistência e leituras relacionais
 - `ISearchRepository` — busca textual e indexação
 
-### 4.4 Indexação — local vs produção
+### 4.4 Indexação — sync vs async
 
-**Local (implementado):**
-
-```
-POST (publicado) / PUT (mantém publicado) → ArticlesService → save(PG) → index(OpenSearch)
-PUT (despublica, publishedAt: null)      → ArticlesService → save(PG) → remove(OpenSearch)
-```
-
-**Bootstrap na subida (`ArticlesSearchBootstrap`):**
-
-- Sempre executa `ensureIndex()` (cria índice se ausente).
-- Reindexação completa dos artigos publicados só quando `SEARCH_REINDEX_ON_STARTUP=true` (default em dev).
-- Em produção, usar `SEARCH_REINDEX_ON_STARTUP=false` e job separado para reindexação.
-
-**Produção (documentado):**
+**Sync — desenvolvimento (`INDEXING_MODE=sync`):**
 
 ```
-POST/PUT → save(PG) → enqueue(SQS) → Lambda worker → index(OpenSearch)
+POST (publicado) / PUT (mantém publicado) → ArticlesService → save(PG) → index(OpenSearch) → revalidate
+PUT (despublica, publishedAt: null)      → ArticlesService → save(PG) → remove(OpenSearch) → revalidate
 ```
 
-O padrão **Outbox** garante que nenhum artigo persistido seja perdido na fila. Não usamos Domain Events no código — a orquestração fica no application service (local) ou no worker (prod).
+**Async — Render (`INDEXING_MODE=async`):**
+
+```
+POST/PUT → ArticlesService → save(PG) + enqueue(index_jobs) → HTTP 202
+IndexWorkerService → claim jobs → index/remove(OpenSearch) → revalidate frontend
+```
+
+Ação do job: `INDEX` quando artigo publicado; `REMOVE` ao despublicar (`publishedAt: null`). Claim com `FOR UPDATE SKIP LOCKED` para concorrência segura.
+
+**Bootstrap na subida (`ArticlesSearchBootstrap`):** `ensureIndex()` sempre; reindex completo só com `SEARCH_REINDEX_ON_STARTUP=true` (dev). Em produção, `false` + job dedicado.
+
+Deploy Render: [deploy-render.md](./deploy-render.md).
 
 ### 4.5 Tratamento de erros
 
@@ -431,7 +433,8 @@ sequenceDiagram
 | **Repository + Services** | ✅ | `ArticlesService` + ports Prisma/OpenSearch |
 | **Value Objects** | ✅ | `Slug` no domínio |
 | **Domain Events** | ✅ Descartado | Orquestração direta no service |
-| **Outbox + SQS** | 📄 | LocalStack no Docker; worker só em prod |
+| **Outbox + Worker** | ✅ | `index_jobs` + `IndexWorkerService`; LocalStack SQS só simulação dev |
+| **Cache + invalidação** | ✅ | `Cache-Control` na API; ISR + `/api/revalidate` no frontend |
 | **ADR** | ✅ Adotado | Registros em [docs/adr/](./adr/) |
 | **Observabilidade** | 📄 Adiado | Correlation ID, logs estruturados |
 | **OpenAPI / Swagger** | 📄 Adiado | Contrato no SDD |
@@ -443,16 +446,38 @@ sequenceDiagram
 ## 9. Decisões de infraestrutura
 
 
-| Componente | Local | Produção (AWS) |
-|------------|-------|----------------|
-| Runtime | NestJS + Fastify | ECS Fargate |
-| Banco | PostgreSQL (Docker) | RDS PostgreSQL |
-| Busca | OpenSearch (Docker) | OpenSearch Service |
-| AWS local | LocalStack SQS (Docker) | SQS gerenciado |
-| Indexação | Síncrona via `ArticlesService` | SQS + Lambda (assíncrona) |
-| Config | `.env` | Secrets Manager / Parameter Store |
+| Componente | Local | Render (deploy atual) | AWS (documentado) |
+|------------|-------|----------------------|-------------------|
+| Runtime API | NestJS + Fastify | Web Service | ECS Fargate |
+| Indexação | Sync (`ArticlesService`) | Async Outbox + Background Worker | SQS + Lambda |
+| Banco | PostgreSQL (Docker) | Render Postgres | RDS PostgreSQL |
+| Busca | OpenSearch (Docker) | OpenSearch externo ou desabilitado | OpenSearch Service |
+| AWS local | LocalStack SQS (simulação) | — | SQS gerenciado |
+| Config | `.env` | Env vars Render | Secrets Manager |
 
 Detalhes completos de produção estão na [seção 3.3 do SDD](./SDD.md#33-arquitetura-proposta-para-produção-aws).
+
+### 9.1 Cache e invalidação (sem Redis)
+
+Estratégia em duas camadas, adequada ao deploy no Render:
+
+| Camada | Mecanismo | Onde |
+|--------|-----------|------|
+| API (leitura) | `Cache-Control: public, max-age=N` | `HttpCacheInterceptor` + `@HttpCache` nos controllers |
+| Frontend | ISR (`revalidate` + `tags`) | `portal-noticias-frontend` — `lib/api/cache.ts` |
+| Invalidação | Webhook `POST /api/revalidate` | `FrontendCacheInvalidationService` após ingestão |
+
+**TTLs da API (env):**
+
+| Perfil | Env | Default | Rotas |
+|--------|-----|---------|-------|
+| Artigos | `CACHE_ARTICLES_MAX_AGE` | 60s | `GET /articles`, `GET /articles/:slug` |
+| Busca (`q`) | `CACHE_SEARCH_MAX_AGE` | 30s | `GET /articles?q=...` |
+| Catálogos | `CACHE_CATALOG_MAX_AGE` | 300s | `GET /categories`, `GET /tags` |
+
+Ingestão (`POST/PUT`) e health (`GET /health`) usam `Cache-Control: no-store`.
+
+Após ingestão **síncrona**, o `ArticlesService` dispara invalidação fire-and-forget. No modo **async**, o `IndexWorkerService` chama o webhook após indexação. Falha no webhook não bloqueia persistência.
 
 ---
 

@@ -40,7 +40,7 @@ Mapa entre requisitos do edital e implementação neste repositório (backend).
 | [RNF07](./requisitos-funcionais-nao-funcionais.md#rnf07--testabilidade) | ✅ | Jest unitário + integração (domínio, service, HTTP, Prisma, OpenSearch) |
 | [RNF08](./requisitos-funcionais-nao-funcionais.md#rnf08--qualidade-de-código) | ✅ | Padrões em [arquitetura.md](./arquitetura.md); módulo `articles` implementado |
 | [RNF09](./requisitos-funcionais-nao-funcionais.md#rnf09--escalabilidade) | 📄 | Arquitetura AWS — [§3.3](#33-arquitetura-proposta-para-produção-aws) |
-| [RNF10](./requisitos-funcionais-nao-funcionais.md#rnf10--busca-e-persistência) | ✅ | PG fonte de verdade; OpenSearch busca (`q`) e indexação síncrona na ingestão — [§3.2](#32-padrão-de-sincronização-banco--busca) |
+| [RNF10](./requisitos-funcionais-nao-funcionais.md#rnf10--busca-e-persistência) | ✅ | PG fonte de verdade; OpenSearch busca (`q`); indexação sync (dev) ou async Outbox (Render) — [§3.2](#32-padrão-de-sincronização-banco--busca) |
 | [RNF11](./requisitos-funcionais-nao-funcionais.md#rnf11--observabilidade) | 📄 | CloudWatch + X-Ray (produção) — [§3.3](#33-arquitetura-proposta-para-produção-aws) |
 | [RNF12](./requisitos-funcionais-nao-funcionais.md#rnf12--segurança) | ✅ | `ApiKeyGuard` (`X-API-Key` / `INGEST_API_KEY`); validação de DTOs |
 | [RNF13](./requisitos-funcionais-nao-funcionais.md#rnf13--manutenibilidade) | ✅ | Módulo `articles` com ports/adapters e repositórios Prisma |
@@ -199,21 +199,31 @@ Campos `keyword`: `category`, `slug`, `author`.
 
 ### 3.2 Padrão de sincronização banco ↔ busca
 
-**Local (implementado no módulo `articles`):**
+**Desenvolvimento local (`INDEXING_MODE=sync`, default):**
 
 ```
-POST/PUT → ArticlesService → save(PG) → index(OpenSearch)
+POST/PUT → ArticlesService → save(PG) → index/remove(OpenSearch) → revalidate frontend
 ```
 
-Orquestração **direta** no application service — sem Domain Events.
+Orquestração **direta** no `ArticlesService` — sem Domain Events. Resposta **201** (criar) ou **200** (atualizar).
 
-**Produção (documentado):**
+**Produção Render (`INDEXING_MODE=async`):**
 
 ```
-POST/PUT → save(PG) → enqueue(SQS) → Lambda worker → index(OpenSearch)
+POST/PUT → save(PG) + insert index_jobs → 202 Accepted
+Background Worker → poll index_jobs → index/remove(OpenSearch) → revalidate frontend
 ```
 
-Indexação **assíncrona** via SQS + Lambda, com Outbox para consistência eventual.
+Indexação **assíncrona** via **Outbox PostgreSQL** (`index_jobs`) + **Render Background Worker** (`yarn start:worker`). Mesmo efeito de fila (publicação rápida, indexação posterior), sem SQS em produção.
+
+| Modo | Env | HTTP | Indexação | Revalidação ISR |
+|------|-----|------|-----------|-----------------|
+| Sync | `INDEXING_MODE=sync` | 201/200 | Na API | Na API |
+| Async | `INDEXING_MODE=async` | 202 | No worker | No worker |
+
+**AWS (documentado, alternativa):** diagrama com SQS + Lambda em [§3.3](#33-arquitetura-proposta-para-produção-aws). LocalStack SQS no Docker Compose simula a fila em dev (RNF06), sem driver no código.
+
+Deploy Render: [deploy-render.md](./deploy-render.md).
 
 #### CQRS leve (leituras)
 
@@ -286,7 +296,31 @@ Atende [RNF09](./requisitos-funcionais-nao-funcionais.md#rnf09--escalabilidade) 
 
 **Decisão:** API principal em **ECS Fargate**. **Lambda** apenas para workers de indexação.
 
-### 3.5 Reindexação e remoção
+### 3.5 Cache e invalidação (sem Redis)
+
+Deploy atual no **Render** — sem Redis ou cache in-memory compartilhado.
+
+| Camada | Mecanismo | Implementação |
+|--------|-----------|---------------|
+| API (leitura) | `Cache-Control: public, max-age=N` | `HttpCacheInterceptor` + `@HttpCache` nos controllers |
+| Frontend | ISR (`revalidate` + `tags`) | Repo `portal-noticias-frontend` — `lib/api/cache.ts` |
+| Invalidação | Webhook server-to-server | `FrontendCacheInvalidationService` → `POST /api/revalidate` |
+
+**TTLs configuráveis (segundos):**
+
+| Perfil | Env | Default | Rotas |
+|--------|-----|---------|-------|
+| Artigos | `CACHE_ARTICLES_MAX_AGE` | 60 | `GET /articles`, `GET /articles/:slug` |
+| Busca (`q`) | `CACHE_SEARCH_MAX_AGE` | 30 | `GET /articles?q=...` |
+| Catálogos | `CACHE_CATALOG_MAX_AGE` | 300 | `GET /categories`, `GET /tags` |
+
+`GET /health` e ingestão (`POST`/`PUT`) usam `Cache-Control: no-store`.
+
+Após ingestão **síncrona**, o `ArticlesService` dispara invalidação fire-and-forget. No modo **async**, o `IndexWorkerService` chama o webhook após indexação bem-sucedida. Falha no webhook **não** bloqueia persistência nem o job.
+
+Detalhes: [arquitetura.md §9.1](./arquitetura.md#91-cache-e-invalidação-sem-redis).
+
+### 3.6 Reindexação e remoção
 
 | Operação | Fluxo |
 |----------|-------|
@@ -295,7 +329,7 @@ Atende [RNF09](./requisitos-funcionais-nao-funcionais.md#rnf09--escalabilidade) 
 | Remover | `DELETE` PG → delete document por `id` |
 | Reindexação total | Job batch lê todos os artigos do PG e faz bulk index no OpenSearch |
 
-### 3.6 Estrutura do repositório
+### 3.7 Estrutura do repositório
 
 **Atual:**
 
@@ -303,6 +337,13 @@ Atende [RNF09](./requisitos-funcionais-nao-funcionais.md#rnf09--escalabilidade) 
 portal-noticias-backend/
 ├── src/
 │   ├── app.*                 # bootstrap + health-check
+│   ├── shared/
+│   │   ├── config/cache.config.ts
+│   │   ├── infrastructure/cache/frontend-cache-invalidation.service.ts
+│   │   └── presentation/
+│   │       ├── decorators/http-cache.decorator.ts
+│   │       └── interceptors/http-cache.interceptor.ts
+│   ├── modules/articles/     # bounded context articles
 │   └── prisma/               # PrismaModule
 ├── prisma/
 │   ├── schema.prisma
@@ -424,7 +465,8 @@ Header: X-API-Key: <INGEST_API_KEY>
 }
 ```
 
-**Resposta 201** — artigo criado e indexado (inclui `id` e `publishedAt` nullable).  
+**Resposta 201** — artigo criado e indexado (`indexingStatus: "completed"`, modo sync).  
+**Resposta 202** — artigo persistido; indexação enfileirada (`indexingStatus: "pending"`, `INDEXING_MODE=async`).  
 **Resposta 401** — chave inválida.  
 **Resposta 400** — validação (`ValidationPipe`, alinhado aos GETs).
 
@@ -438,7 +480,8 @@ Header: X-API-Key: <INGEST_API_KEY>
 ```
 
 **Body** — campos parciais ou completos (`publishedAt: null` despublica). O slug **não** muda.  
-**Resposta 200** — artigo atualizado e reindexado.  
+**Resposta 200** — artigo atualizado e reindexado (`indexingStatus: "completed"`, modo sync).  
+**Resposta 202** — artigo atualizado; indexação enfileirada (`indexingStatus: "pending"`, modo async).  
 **Resposta 401** — chave inválida.  
 **Resposta 400** — validação ou UUID inválido.  
 **Resposta 404** — artigo não encontrado.
@@ -473,8 +516,8 @@ Códigos: `ARTICLE_NOT_FOUND` (404), `DUPLICATE_SLUG` (409, corrida rara na uniq
 ### 5.2 Simplificações assumidas
 
 - Autenticação de ingestão via **API Key** (`X-API-Key`) — [RF08](./requisitos-funcionais-nao-funcionais.md#rf08--ingestão-de-artigos)
-- Indexação **síncrona** em ambiente local
-- Sem cache de consultas (Redis como próximo passo)
+- Indexação **síncrona** em ambiente local (`INDEXING_MODE=sync`); **assíncrona** no Render via Outbox + Background Worker
+- Cache HTTP na API (`Cache-Control`) + invalidação ISR do frontend via webhook (sem Redis)
 - Conteúdo em texto simples/Markdown
 
 ### 5.3 Fora do escopo
@@ -495,7 +538,7 @@ Ver [§4 do documento de requisitos](./requisitos-funcionais-nao-funcionais.md#4
 10. [ ] Frontend Next.js ([RF11](./requisitos-funcionais-nao-funcionais.md#rf11--estados-da-interface))
 11. [x] Jest (testes de domínio e mappers)
 12. [x] CI (GitHub Actions — lint, format, testes unitários, build, integração)
-    [ ] cache de aplicação (diferencial); [ ] ingestão assíncrona via SQS
+    [x] cache HTTP + invalidação ISR (diferencial); [x] ingestão assíncrona (Outbox PG + Render Background Worker)
 
 Priorização completa: [§5 do documento de requisitos](./requisitos-funcionais-nao-funcionais.md#5-priorização).
 

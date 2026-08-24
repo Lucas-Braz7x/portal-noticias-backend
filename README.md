@@ -52,11 +52,11 @@ docker compose up -d
 
 Serviços disponíveis:
 
-| Serviço    | URL                     | Uso                                 |
-| ---------- | ----------------------- | ----------------------------------- |
-| PostgreSQL | `localhost:5432`        | Persistência                        |
-| OpenSearch | `http://localhost:9200` | Busca textual                       |
-| LocalStack | `http://localhost:4566` | SQS (indexação assíncrona simulada) |
+| Serviço    | URL                     | Uso                                            |
+| ---------- | ----------------------- | ---------------------------------------------- |
+| PostgreSQL | `localhost:5432`        | Persistência                                   |
+| OpenSearch | `http://localhost:9200` | Busca textual                                  |
+| LocalStack | `http://localhost:4566` | SQS (simulação AWS em dev; prod usa Outbox PG) |
 
 Verificar OpenSearch:
 
@@ -87,9 +87,19 @@ yarn start:dev
 # produção
 yarn build
 yarn start:prod
+
+# background worker (indexação assíncrona — Render)
+yarn start:worker
 ```
 
 A API estará disponível em `http://localhost:3000/api/v1`.
+
+Em desenvolvimento, a indexação é **síncrona** (`INDEXING_MODE=sync`, default). Para testar o fluxo assíncrono localmente, defina `INDEXING_MODE=async` e rode o worker em outro terminal:
+
+```bash
+INDEXING_MODE=async yarn start:dev   # terminal 1
+yarn build && yarn start:worker      # terminal 2
+```
 
 ### Health check
 
@@ -106,6 +116,7 @@ curl http://localhost:3000/api/v1/health
 | `yarn start:dev`        | Inicia em modo watch                               |
 | `yarn build`            | Compila para `dist/`                               |
 | `yarn start:prod`       | Executa build de produção                          |
+| `yarn start:worker`     | Background worker — consome `index_jobs` (async)   |
 | `yarn lint`             | ESLint (flat config)                               |
 | `yarn lint:fix`         | ESLint com correção automática                     |
 | `yarn format`           | Formata código com Prettier                        |
@@ -129,8 +140,8 @@ curl http://localhost:3000/api/v1/health
 | `GET`  | `/api/v1/health`         | ✅ Implementado | Status da API e conexão com banco                                                                        |
 | `GET`  | `/api/v1/articles`       | ✅ Implementado | Listagem paginada (RF01/RF02); busca com `q` via OpenSearch (RF03); filtros `category`/`tag` (RF04/RF05) |
 | `GET`  | `/api/v1/articles/:slug` | ✅ Implementado | Detalhe de artigo publicado (RF06)                                                                       |
-| `POST` | `/api/v1/articles`       | ✅ Implementado | Criar artigo (requer `X-API-Key`)                                                                        |
-| `PUT`  | `/api/v1/articles/:id`   | ✅ Implementado | Atualizar artigo (requer `X-API-Key`)                                                                    |
+| `POST` | `/api/v1/articles`       | ✅ Implementado | Criar artigo (requer `X-API-Key`); `201` (sync) ou `202` (async)                                         |
+| `PUT`  | `/api/v1/articles/:id`   | ✅ Implementado | Atualizar artigo (requer `X-API-Key`); `200` (sync) ou `202` (async)                                     |
 
 Contratos completos na [especificação SDD](docs/SDD.md#4-contratos-da-api).
 
@@ -145,7 +156,8 @@ Presentation → Application → Domain ← Infrastructure
 ```
 
 - **Controllers** — entrada HTTP, DTOs, validação, `ApiKeyGuard` na ingestão ✅
-- **ArticlesService** — orquestração direta (PostgreSQL + OpenSearch) ✅
+- **ArticlesService** — orquestração direta (PostgreSQL + OpenSearch ou Outbox) ✅
+- **IndexWorkerService** — processa `index_jobs` e revalida o frontend (modo async) ✅
 - **Domain** — entidades, value objects, interfaces de repositório ✅
 - **Infrastructure** — Prisma ✅, OpenSearch ✅ (busca com `q` e indexação na ingestão)
 
@@ -165,6 +177,7 @@ Documentação completa: [docs/arquitetura.md](docs/arquitetura.md)
 | [docs/prisma-schema/index.html](docs/prisma-schema/index.html)                               | Referência HTML do schema Prisma (models, campos, relações)        |
 | [docs/diagramas/diagrama-eer.png](docs/diagramas/diagrama-eer.png)                           | Diagrama EER do banco relacional                                   |
 | [docs/adr/](docs/adr/)                                                                       | Architecture Decision Records (ADRs)                               |
+| [docs/deploy-render.md](docs/deploy-render.md)                                               | Deploy no Render (API + Background Worker + frontend)              |
 | [docs/uso-de-ia.md](docs/uso-de-ia.md)                                                       | Uso de IA no desenvolvimento (RNF16)                               |
 
 ### Schema Prisma e diagrama EER
@@ -249,11 +262,29 @@ yarn test:integration
 | `OPENSEARCH_ENABLED`        | Habilita OpenSearch (busca `q` com ranking e indexação). Se `false`, busca `q` usa fallback PostgreSQL (`ILIKE`, sem ranking) | `true`                        |
 | `OPENSEARCH_NODE`           | URL do OpenSearch                                                                                                             | `http://localhost:9200`       |
 | `SEARCH_REINDEX_ON_STARTUP` | Reindexar artigos publicados na subida da API                                                                                 | `true` (dev); `false` em prod |
-| `AWS_ENDPOINT_URL`          | Endpoint LocalStack                                                                                                           | `http://localhost:4566`       |
+| `CACHE_ARTICLES_MAX_AGE`    | TTL do `Cache-Control` em listagem/detalhe de artigos (segundos)                                                              | `60`                          |
+| `CACHE_SEARCH_MAX_AGE`      | TTL do `Cache-Control` em buscas com `?q=` (segundos)                                                                         | `30`                          |
+| `CACHE_CATALOG_MAX_AGE`     | TTL do `Cache-Control` em `/categories` e `/tags` (segundos)                                                                  | `300`                         |
+| `FRONTEND_REVALIDATE_URL`   | URL do webhook ISR do frontend (ex.: `https://seu-app.onrender.com/api/revalidate`)                                           | — (opcional)                  |
+| `REVALIDATE_SECRET`         | Segredo compartilhado com o frontend para invalidação on-demand                                                               | — (opcional)                  |
+| `INDEXING_MODE`             | `sync` (dev) ou `async` (Render API) — enfileira em `index_jobs` sem indexar na hora                                          | `sync`                        |
+| `INDEX_WORKER_POLL_MS`      | Intervalo de poll do worker (ms)                                                                                              | `2000`                        |
+| `INDEX_WORKER_BATCH_SIZE`   | Jobs por lote no worker                                                                                                       | `5`                           |
+| `INDEX_WORKER_MAX_ATTEMPTS` | Tentativas antes de marcar job como `FAILED`                                                                                  | `5`                           |
+| `AWS_ENDPOINT_URL`          | Endpoint LocalStack (simulação SQS em dev)                                                                                    | `http://localhost:4566`       |
 | `AWS_REGION`                | Região AWS local                                                                                                              | `us-east-1`                   |
-| `SQS_INDEX_QUEUE_URL`       | Fila SQS para indexação                                                                                                       | ver `.env.example`            |
+| `SQS_INDEX_QUEUE_URL`       | Fila SQS no LocalStack (simulação; sem driver em prod)                                                                        | ver `.env.example`            |
 
 > `SEARCH_REINDEX_ON_STARTUP=true` reindexa todos os artigos publicados a cada subida (útil em dev). Em produção, use `false` e execute reindexação via job dedicado.
+
+### Cache e invalidação (Render, sem Redis)
+
+- **API:** respostas `GET` públicas recebem `Cache-Control` com TTL configurável (`CACHE_*_MAX_AGE`).
+- **Frontend:** ISR via Next.js (`revalidate` + `tags` no repo frontend).
+- **Invalidação (sync):** após `POST/PUT`, a API chama `FRONTEND_REVALIDATE_URL` (fire-and-forget).
+- **Invalidação (async):** o **Background Worker** chama o webhook após indexação bem-sucedida. Configure `FRONTEND_REVALIDATE_URL` e `REVALIDATE_SECRET` na API **e** no worker.
+
+Deploy completo: [docs/deploy-render.md](docs/deploy-render.md).
 
 ---
 
@@ -266,9 +297,18 @@ portal-noticias-backend/
 ├── docker/localstack/init/   # bootstrap da fila SQS
 ├── src/
 │   ├── main.ts
+│   ├── worker.ts             # entrypoint do Background Worker
+│   ├── worker.module.ts
 │   ├── app.module.ts
 │   ├── app.controller.ts     # GET /health
 │   ├── app.service.ts
+│   ├── shared/
+│   │   ├── config/cache.config.ts
+│   │   ├── infrastructure/cache/frontend-cache-invalidation.service.ts
+│   │   └── presentation/
+│   │       ├── decorators/http-cache.decorator.ts
+│   │       └── interceptors/http-cache.interceptor.ts
+│   ├── modules/articles/     # bounded context articles (+ index_jobs outbox)
 │   └── prisma/               # PrismaModule (global)
 ├── src/                      # código da aplicação
 ├── test/                     # testes unitários (*.spec.ts)
