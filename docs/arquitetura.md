@@ -438,8 +438,8 @@ sequenceDiagram
 | **Outbox + Worker** | ✅ | `index_jobs` + `IndexWorkerService`; LocalStack SQS só simulação dev |
 | **Cache + invalidação** | ✅ | `Cache-Control` na API; ISR + `/api/revalidate` no frontend |
 | **ADR** | ✅ Adotado | Registros em [docs/adr/](./adr/) |
-| **Observabilidade** | 📄 Adiado | Correlation ID, logs estruturados |
-| **OpenAPI / Swagger** | 📄 Adiado | Contrato no SDD |
+| **Observabilidade** | 📄 Documentado | Plano em [arquitetura-producao.md §7](./arquitetura-producao.md#7-plano-de-observabilidade) |
+| **OpenAPI / Swagger** | ✅ | Disponível em `GET /docs`; `SwaggerModule` wired em `main.ts` |
 | **Testcontainers** | 📄 Adiado | Diferencial opcional |
 | **Idempotência na ingestão** | 📄 Adiado | Diferencial opcional |
 
@@ -466,7 +466,7 @@ Estratégia em duas camadas, adequada ao deploy no Render:
 | Camada | Mecanismo | Onde |
 |--------|-----------|------|
 | API (leitura) | `Cache-Control: public, max-age=N` | `HttpCacheInterceptor` + `@HttpCache` nos controllers |
-| Frontend | ISR (`revalidate` + `tags`) | `portal-noticias-frontend` — `lib/api/cache.ts` |
+| Frontend | ISR (`revalidate` + `tags`) | [portal-noticias-frontend](https://github.com/Lucas-Braz7x/portal-noticias-frontend) — `lib/api/cache.ts` |
 | Invalidação | Webhook `POST /api/revalidate` | `FrontendCacheInvalidationService` após ingestão |
 
 **TTLs da API (env):**
@@ -487,6 +487,9 @@ Após ingestão **síncrona**, o `ArticlesService` dispara invalidação fire-an
 
 - [Requisitos funcionais e não funcionais](./requisitos-funcionais-nao-funcionais.md) — baseline do edital
 - [SDD — Especificação técnica](./SDD.md)
+- [Arquitetura de produção (AWS)](./arquitetura-producao.md) — Lambda vs ECS, indexação, observabilidade, segurança
+- [Próximos passos](./proximos-passos.md) — Redis, SQS, observabilidade, roadmap
+- [Deploy no Render](./deploy-render.md) — setup dos 3 serviços Render
 - [ADRs — Decisões arquiteturais](./adr/)
 - Evans, Eric — *Domain-Driven Design*
 - Martin, Robert — *Clean Architecture*
@@ -494,4 +497,4 @@ Após ingestão **síncrona**, o `ArticlesService` dispara invalidação fire-an
 
 ---
 
-*Versão: 1.1 — Agosto/2026*
+*Versão: 1.2 — Agosto/2026*

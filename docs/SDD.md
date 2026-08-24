@@ -3,6 +3,11 @@
 > **Spec Driven Development** — decisões de implementação registradas antes e durante o código.  
 > Requisitos funcionais e não funcionais do desafio: [requisitos-funcionais-nao-funcionais.md](./requisitos-funcionais-nao-funcionais.md).
 
+| | |
+|---|---|
+| **Repositório** | [github.com/Lucas-Braz7x/portal-noticias-backend](https://github.com/Lucas-Braz7x/portal-noticias-backend) |
+| **Produção** | [portal-noticias-backend.onrender.com](https://portal-noticias-backend.onrender.com/) |
+
 ---
 
 ## 1. Rastreabilidade
@@ -23,7 +28,7 @@ Mapa entre requisitos do edital e implementação neste repositório (backend).
 | [RF08](./requisitos-funcionais-nao-funcionais.md#rf08--ingestão-de-artigos) | ✅ | `POST` / `PUT` + header `X-API-Key` — [§4.3](#43-ingestão-criar), [§4.4](#44-ingestão-atualizar) |
 | [RF09](./requisitos-funcionais-nao-funcionais.md#rf09--persistência) | ✅ | PostgreSQL via Prisma — schema + migration — [§2](#2-modelo-de-dados) |
 | [RF10](./requisitos-funcionais-nao-funcionais.md#rf10--dados-iniciais) | ✅ | `prisma/seed.ts` — 22 artigos, 5 categorias, 10 tags |
-| [RF11](./requisitos-funcionais-nao-funcionais.md#rf11--estados-da-interface) | — | Frontend (repositório separado) |
+| [RF11](./requisitos-funcionais-nao-funcionais.md#rf11--estados-da-interface) | — | Frontend — `loading.tsx`, `error.tsx`, `EmptyState`, `notFound()` (repositório separado) |
 
 > **Extra (bootstrap):** `GET /api/v1/health` — ✅ implementado (não faz parte dos RF do edital).
 
@@ -284,6 +289,8 @@ flowchart TB
 
 Atende [RNF09](./requisitos-funcionais-nao-funcionais.md#rnf09--escalabilidade) e [RNF11](./requisitos-funcionais-nao-funcionais.md#rnf11--observabilidade).
 
+Detalhes completos (diagramas PNG, trade-offs, indexação, observabilidade, segurança e custo): [arquitetura-producao.md](./arquitetura-producao.md).
+
 ### 3.4 Lambda vs Container (ECS/EC2) — trade-offs
 
 | Critério | Lambda | ECS Fargate / EC2 |
@@ -303,7 +310,7 @@ Deploy atual no **Render** — sem Redis ou cache in-memory compartilhado.
 | Camada | Mecanismo | Implementação |
 |--------|-----------|---------------|
 | API (leitura) | `Cache-Control: public, max-age=N` | `HttpCacheInterceptor` + `@HttpCache` nos controllers |
-| Frontend | ISR (`revalidate` + `tags`) | Repo `portal-noticias-frontend` — `lib/api/cache.ts` |
+| Frontend | ISR (`revalidate` + `tags`) | [portal-noticias-frontend](https://github.com/Lucas-Braz7x/portal-noticias-frontend) — `lib/api/cache.ts` |
 | Invalidação | Webhook server-to-server | `FrontendCacheInvalidationService` → `POST /api/revalidate` |
 
 **TTLs configuráveis (segundos):**
@@ -336,7 +343,10 @@ Detalhes: [arquitetura.md §9.1](./arquitetura.md#91-cache-e-invalidação-sem-r
 ```
 portal-noticias-backend/
 ├── src/
-│   ├── app.*                 # bootstrap + health-check
+│   ├── main.ts               # bootstrap da API
+│   ├── worker.ts             # bootstrap do Background Worker
+│   ├── worker.module.ts
+│   ├── app.*                 # health-check
 │   ├── shared/
 │   │   ├── config/cache.config.ts
 │   │   ├── infrastructure/cache/frontend-cache-invalidation.service.ts
@@ -357,7 +367,7 @@ portal-noticias-backend/
 
 **Alvo** (módulo `articles` + `shared/`): [arquitetura.md §3](./arquitetura.md#3-estrutura-de-pastas).
 
-> Frontend (`portal-noticias-frontend`) em repositório separado.
+> Frontend em repositório separado: [github.com/Lucas-Braz7x/portal-noticias-frontend](https://github.com/Lucas-Braz7x/portal-noticias-frontend) · [portal-noticias-frontend.onrender.com](https://portal-noticias-frontend.onrender.com)
 
 Padrões de código e camadas: [arquitetura.md](./arquitetura.md).
 
@@ -535,7 +545,7 @@ Ver [§4 do documento de requisitos](./requisitos-funcionais-nao-funcionais.md#4
 7. [x] Domínio + persistência do módulo `articles` (entidades, repositórios Prisma, seed)
 8. [x] Endpoints RF08 (ingestão); RF01–RF06 ✅
 9. [x] Integração OpenSearch — busca textual (RF03) ✅; indexação na ingestão (RF08) ✅
-10. [ ] Frontend Next.js ([RF11](./requisitos-funcionais-nao-funcionais.md#rf11--estados-da-interface))
+10. [x] Frontend Next.js — RF11 ✅ ([repositório frontend](https://github.com/Lucas-Braz7x/portal-noticias-frontend))
 11. [x] Jest (testes de domínio e mappers)
 12. [x] CI (GitHub Actions — lint, format, testes unitários, build, integração)
     [x] cache HTTP + invalidação ISR (diferencial); [x] ingestão assíncrona (Outbox PG + Render Background Worker)
@@ -544,4 +554,4 @@ Priorização completa: [§5 do documento de requisitos](./requisitos-funcionais
 
 ---
 
-*Versão: 1.1 — Agosto/2026*
+*Versão: 1.2 — Agosto/2026*

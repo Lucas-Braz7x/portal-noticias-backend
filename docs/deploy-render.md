@@ -2,12 +2,17 @@
 
 Guia para publicar o portal com **ingestão assíncrona** (Outbox PostgreSQL + worker embutido na API), sem SQS em produção.
 
+| Projeto | Repositório | Produção |
+|---------|-------------|----------|
+| Backend (API) | [github.com/Lucas-Braz7x/portal-noticias-backend](https://github.com/Lucas-Braz7x/portal-noticias-backend) | [portal-noticias-backend.onrender.com](https://portal-noticias-backend.onrender.com/) |
+| Frontend | [github.com/Lucas-Braz7x/portal-noticias-frontend](https://github.com/Lucas-Braz7x/portal-noticias-frontend) | [portal-noticias-frontend.onrender.com](https://portal-noticias-frontend.onrender.com) |
+
 ## Visão geral
 
-| Serviço Render | Tipo | Start command | Repositório |
-|----------------|------|---------------|-------------|
-| `portal-noticias-api` | Web Service | `yarn start:prod` | `portal-noticias-backend` |
-| `portal-noticias-frontend` | Web Service | `yarn start` | `portal-noticias-frontend` |
+| Serviço Render | Tipo | Start command | Repositório GitHub |
+|----------------|------|---------------|-------------------|
+| `portal-noticias-api` | Web Service | `yarn start:prod` | [portal-noticias-backend](https://github.com/Lucas-Braz7x/portal-noticias-backend) |
+| `portal-noticias-frontend` | Web Service | `yarn start` | [portal-noticias-frontend](https://github.com/Lucas-Braz7x/portal-noticias-frontend) |
 
 Com `INDEXING_MODE=async` e `INDEX_WORKER_AUTOSTART=true` (default), o **worker de indexação roda embutido no mesmo processo da API** — não é necessário um Background Worker separado no Render.
 
@@ -54,7 +59,7 @@ DATABASE_URL="<url>" yarn prisma migrate deploy
 | `OPENSEARCH_ENABLED` | `true` ou `false` |
 | `OPENSEARCH_NODE` | URL do cluster externo |
 | `SEARCH_REINDEX_ON_STARTUP` | `false` |
-| `FRONTEND_REVALIDATE_URL` | `https://seu-frontend.onrender.com/api/revalidate` |
+| `FRONTEND_REVALIDATE_URL` | `https://portal-noticias-frontend.onrender.com/api/revalidate` |
 | `REVALIDATE_SECRET` | Mesmo valor do frontend |
 | `CACHE_ARTICLES_MAX_AGE` | `60` |
 | `CACHE_SEARCH_MAX_AGE` | `30` |
@@ -71,8 +76,8 @@ Com `INDEXING_MODE=async`, `POST`/`PUT` retornam **202 Accepted** e `indexingSta
 
 Configure:
 
-- `API_URL` apontando para a API Render (ex.: `https://sua-api.onrender.com/api/v1`)
-- `NEXT_PUBLIC_SITE_URL` com a URL pública do frontend
+- `API_URL` apontando para a API Render (ex.: `https://portal-noticias-backend.onrender.com/api/v1`)
+- `NEXT_PUBLIC_SITE_URL` com a URL pública do frontend (ex.: `https://portal-noticias-frontend.onrender.com`)
 - `REVALIDATE_SECRET` igual ao backend
 
 ## 4. CI/CD (GitHub Actions + Render)
@@ -100,8 +105,8 @@ Em cada repositório: **Settings → Secrets and variables → Actions**:
 
 | Repositório | Secret | Valor |
 |-------------|--------|-------|
-| `portal-noticias-backend` | `RENDER_DEPLOY_HOOK_URL` | Deploy hook da API |
-| `portal-noticias-frontend` | `RENDER_DEPLOY_HOOK_URL` | Deploy hook do frontend |
+| [portal-noticias-backend](https://github.com/Lucas-Braz7x/portal-noticias-backend) | `RENDER_DEPLOY_HOOK_URL` | Deploy hook da API |
+| [portal-noticias-frontend](https://github.com/Lucas-Braz7x/portal-noticias-frontend) | `RENDER_DEPLOY_HOOK_URL` | Deploy hook do frontend |
 
 Nunca commitar URLs de deploy hook no repositório. Se uma hook foi exposta, use **Regenerate Hook** no Render ([documentação](https://render.com/docs/deploy-hooks)).
 

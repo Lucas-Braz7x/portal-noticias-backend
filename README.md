@@ -2,7 +2,12 @@
 
 API REST para o portal de notícias/artigos, desenvolvida como parte do desafio técnico da **Gazeta do Povo**.
 
-Construída com **NestJS + Fastify**, **Prisma + PostgreSQL** e **OpenSearch**, seguindo **DDD pragmático**, **Clean Code**, **TDD**, **Repository / Services** e **CQRS leve** (PG para listagem, OpenSearch para busca textual).
+|                 |                                                                                                            |
+| --------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Repositório** | [github.com/Lucas-Braz7x/portal-noticias-backend](https://github.com/Lucas-Braz7x/portal-noticias-backend) |
+| **Produção**    | [portal-noticias-backend.onrender.com](https://portal-noticias-backend.onrender.com/)                      |
+
+Construída com **NestJS + Fastify**, **Prisma + PostgreSQL** e **OpenSearch**, seguindo **DDD pragmático**, **Clean Code**, **TDD**, **Repository / Services** e **CQRS leve** (PG para listagem, OpenSearch para busca textual). Interface web no [repositório do frontend](https://github.com/Lucas-Braz7x/portal-noticias-frontend) (separado).
 
 ---
 
@@ -33,7 +38,7 @@ Construída com **NestJS + Fastify**, **Prisma + PostgreSQL** e **OpenSearch**, 
 ### 1. Clonar e instalar dependências
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/Lucas-Braz7x/portal-noticias-backend.git
 cd portal-noticias-backend
 yarn install
 ```
@@ -96,10 +101,17 @@ A API estará disponível em `http://localhost:3000/api/v1`.
 
 Em desenvolvimento, a indexação é **síncrona** (`INDEXING_MODE=sync`, default). Com `INDEXING_MODE=async`, o worker embutido sobe junto com a API (`INDEX_WORKER_AUTOSTART=true`) e drena jobs pendentes na subida — não é preciso rodar `yarn start:worker` em outro terminal. Para um processo dedicado (produção), use `yarn build && yarn start:worker` e defina `INDEX_WORKER_AUTOSTART=false` na API.
 
-### Health check
+### Health check e Swagger
 
 ```bash
+# Health
 curl http://localhost:3000/api/v1/health
+
+# Swagger UI (OpenAPI)
+open http://localhost:3000/docs
+
+# OpenAPI JSON
+curl http://localhost:3000/docs-json
 ```
 
 ---
@@ -135,10 +147,13 @@ curl http://localhost:3000/api/v1/health
 | `GET`  | `/api/v1/health`         | ✅ Implementado | Status da API e conexão com banco                                                                        |
 | `GET`  | `/api/v1/articles`       | ✅ Implementado | Listagem paginada (RF01/RF02); busca com `q` via OpenSearch (RF03); filtros `category`/`tag` (RF04/RF05) |
 | `GET`  | `/api/v1/articles/:slug` | ✅ Implementado | Detalhe de artigo publicado (RF06)                                                                       |
+| `GET`  | `/api/v1/categories`     | ✅ Implementado | Catálogo de categorias (slug + name)                                                                     |
+| `GET`  | `/api/v1/tags`           | ✅ Implementado | Catálogo de tags (slug + name)                                                                           |
 | `POST` | `/api/v1/articles`       | ✅ Implementado | Criar artigo (requer `X-API-Key`); `201` (sync) ou `202` (async)                                         |
 | `PUT`  | `/api/v1/articles/:id`   | ✅ Implementado | Atualizar artigo (requer `X-API-Key`); `200` (sync) ou `202` (async)                                     |
+| `GET`  | `/docs`                  | ✅ Implementado | Swagger UI — documentação interativa (OpenAPI)                                                           |
 
-Contratos completos na [especificação SDD](docs/SDD.md#4-contratos-da-api).
+Contratos completos na [especificação SDD](docs/SDD.md#4-contratos-da-api) ou interativamente em `http://localhost:3000/docs`.
 
 ---
 
@@ -164,16 +179,36 @@ Documentação completa: [docs/arquitetura.md](docs/arquitetura.md)
 
 ## Documentação
 
-| Documento                                                                                    | Conteúdo                                                           |
-| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| [docs/requisitos-funcionais-nao-funcionais.md](docs/requisitos-funcionais-nao-funcionais.md) | Baseline do edital — requisitos funcionais e não funcionais        |
-| [docs/SDD.md](docs/SDD.md)                                                                   | Especificação técnica (contratos, modelos, stack, rastreabilidade) |
-| [docs/arquitetura.md](docs/arquitetura.md)                                                   | Padrões, camadas, TDD, estrutura de pastas                         |
-| [docs/prisma-schema/index.html](docs/prisma-schema/index.html)                               | Referência HTML do schema Prisma (models, campos, relações)        |
-| [docs/diagramas/diagrama-eer.png](docs/diagramas/diagrama-eer.png)                           | Diagrama EER do banco relacional                                   |
-| [docs/adr/](docs/adr/)                                                                       | Architecture Decision Records (ADRs)                               |
-| [docs/deploy-render.md](docs/deploy-render.md)                                               | Deploy no Render (API + Background Worker + frontend)              |
-| [docs/uso-de-ia.md](docs/uso-de-ia.md)                                                       | Uso de IA no desenvolvimento (RNF16)                               |
+| Documento                                                                                    | Conteúdo                                                                           |
+| -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [docs/requisitos-funcionais-nao-funcionais.md](docs/requisitos-funcionais-nao-funcionais.md) | Baseline do edital — requisitos funcionais e não funcionais                        |
+| [docs/SDD.md](docs/SDD.md)                                                                   | Especificação técnica (contratos, modelos, stack, rastreabilidade)                 |
+| [docs/arquitetura.md](docs/arquitetura.md)                                                   | Padrões, camadas, TDD, estrutura de pastas                                         |
+| [docs/arquitetura-producao.md](docs/arquitetura-producao.md)                                 | Arquitetura de produção: AWS, Lambda vs ECS, indexação, observabilidade, segurança |
+| [docs/proximos-passos.md](docs/proximos-passos.md)                                           | Roadmap: Redis, SQS, observabilidade, autenticação                                 |
+| [docs/deploy-render.md](docs/deploy-render.md)                                               | Deploy no Render (API + Background Worker + frontend)                              |
+| [docs/prisma-schema/index.html](docs/prisma-schema/index.html)                               | Referência HTML do schema Prisma (models, campos, relações)                        |
+| [docs/diagramas/diagrama-eer.png](docs/diagramas/diagrama-eer.png)                           | Diagrama EER do banco relacional                                                   |
+| [docs/diagramas/arquitetura-render.png](docs/diagramas/arquitetura-render.png)               | Diagrama da arquitetura atual (Render)                                             |
+| [docs/diagramas/arquitetura-aws.png](docs/diagramas/arquitetura-aws.png)                     | Diagrama da arquitetura proposta (AWS)                                             |
+| [docs/adr/](docs/adr/)                                                                       | Architecture Decision Records (ADRs)                                               |
+| [docs/uso-de-ia.md](docs/uso-de-ia.md)                                                       | Uso responsável de IA (RNF16)                                                      |
+
+### Uso de IA (RNF16)
+
+A IA (**Cursor** — Sonnet 4.6 para planejamento, Composer 2.5 para execução) foi usada como **acelerador de rascunhos**, não como autor do projeto. ADRs, contratos REST, regras de domínio e merge ficaram sob revisão manual.
+
+| Onde ajudou       | Exemplos de prompt (resumo)                                                             |
+| ----------------- | --------------------------------------------------------------------------------------- |
+| SDD e ADRs        | _"SDD com contratos REST, ingestão X-API-Key e mapa RF/RNF; ADRs sem over-engineering"_ |
+| Domínio e repos   | _"Módulo articles DDD pragmático: entidades, PrismaArticleRepository paginado"_         |
+| OpenSearch + CQRS | _"ISearchRepository com multi_match; listagem PG, busca q no OS"_                       |
+| Testes            | _"Jest unit no domínio; integração Prisma/OpenSearch com docker compose"_               |
+| Cache + webhook   | _"Cache-Control na API + invalidação ISR do frontend após ingestão"_                    |
+
+Decisões revisadas manualmente: sem Domain Events, `ArticlesService` direto, schema normalizado (ADR-0006), Fastify, Outbox PG no Render, `search.remove()` na despublicação.
+
+Documento completo — prompts, trade-offs, premissas e mini resumo da solução: **[docs/uso-de-ia.md](docs/uso-de-ia.md)**.
 
 ### Schema Prisma e diagrama EER
 
@@ -263,7 +298,7 @@ yarn test:integration
 | `CACHE_ARTICLES_MAX_AGE`    | TTL do `Cache-Control` em listagem/detalhe de artigos (segundos)                                                              | `60`                          |
 | `CACHE_SEARCH_MAX_AGE`      | TTL do `Cache-Control` em buscas com `?q=` (segundos)                                                                         | `30`                          |
 | `CACHE_CATALOG_MAX_AGE`     | TTL do `Cache-Control` em `/categories` e `/tags` (segundos)                                                                  | `300`                         |
-| `FRONTEND_REVALIDATE_URL`   | URL do webhook ISR do frontend (ex.: `https://seu-app.onrender.com/api/revalidate`)                                           | — (opcional)                  |
+| `FRONTEND_REVALIDATE_URL`   | URL do webhook ISR do frontend (ex.: `https://portal-noticias-frontend.onrender.com/api/revalidate`)                          | — (opcional)                  |
 | `REVALIDATE_SECRET`         | Segredo compartilhado com o frontend para invalidação on-demand                                                               | — (opcional)                  |
 | `INDEXING_MODE`             | `sync` (dev) ou `async` — enfileira em `index_jobs` sem indexar na hora                                                       | `sync`                        |
 | `INDEX_WORKER_AUTOSTART`    | Sobe o worker embutido junto com a API quando `INDEXING_MODE=async`                                                           | `true`                        |
@@ -280,11 +315,22 @@ yarn test:integration
 ### Cache e invalidação (Render, sem Redis)
 
 - **API:** respostas `GET` públicas recebem `Cache-Control` com TTL configurável (`CACHE_*_MAX_AGE`).
-- **Frontend:** ISR via Next.js (`revalidate` + `tags` no repo frontend).
+- **Frontend:** ISR via Next.js — repositório [portal-noticias-frontend](https://github.com/Lucas-Braz7x/portal-noticias-frontend) ([produção](https://portal-noticias-frontend.onrender.com)).
 - **Invalidação (sync):** após `POST/PUT`, a API chama `FRONTEND_REVALIDATE_URL` (fire-and-forget).
 - **Invalidação (async):** o worker embutido (`INDEX_WORKER_AUTOSTART=true`) chama o webhook após indexação bem-sucedida. Configure `FRONTEND_REVALIDATE_URL` e `REVALIDATE_SECRET` na API.
 
 Deploy completo: [docs/deploy-render.md](docs/deploy-render.md).
+
+---
+
+## Frontend (repositório separado)
+
+|                 |                                                                                                              |
+| --------------- | ------------------------------------------------------------------------------------------------------------ |
+| **Repositório** | [github.com/Lucas-Braz7x/portal-noticias-frontend](https://github.com/Lucas-Braz7x/portal-noticias-frontend) |
+| **Produção**    | [portal-noticias-frontend.onrender.com](https://portal-noticias-frontend.onrender.com)                       |
+
+A interface consome esta API em `API_URL` (server-side, sem CORS). Invalidação ISR: `POST /api/revalidate` no frontend, chamado por esta API via `FRONTEND_REVALIDATE_URL`. Contratos consumidos pelo frontend estão na [§4 do SDD](docs/SDD.md#4-contratos-da-api).
 
 ---
 

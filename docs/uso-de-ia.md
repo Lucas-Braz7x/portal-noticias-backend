@@ -1,4 +1,4 @@
-# Uso de IA no desenvolvimento
+# Uso de IA no desenvolvimento — Backend
 
 > Atende [RNF16 — Uso responsável de IA](./requisitos-funcionais-nao-funcionais.md#rnf16--uso-responsável-de-ia).
 
@@ -6,35 +6,53 @@
 
 ## 1. Contexto
 
-Desenvolvimento do backend do desafio técnico da **Gazeta do Povo**, com **Cursor** como ambiente principal. A IA generativa entrou no fluxo como acelerador — rascunhos de documentação, exploração de alternativas, boilerplate e primeiros casos de teste — sempre passando por revisão antes de merge.
+Desenvolvimento do backend do desafio técnico da **Gazeta do Povo**, com **Cursor** como ambiente principal. A IA generativa entrou como **ferramenta de aceleração** — rascunhos de documentação, exploração de alternativas, boilerplate e primeiros casos de teste.
+
+**O que a IA não fez:** definir requisitos, registrar ADRs finais, validar contratos REST, executar suites de integração como critério de merge ou decidir deploy. Toda entrega passou por leitura do edital, consulta ao [SDD](./SDD.md) e revisão manual antes de commit.
+
+Fluxo adotado: **especificação → ADR (quando aplicável) → teste → implementação → revisão humana**.
 
 ### Ferramentas e modelos
 
 | Ferramenta | Modelo | Quando usar |
 |------------|--------|-------------|
-| [Cursor](https://cursor.com) | **Composer 2.5** | Execução: boilerplate, testes, mappers, repositórios Prisma, configs Jest/Husky, seed |
 | [Cursor](https://cursor.com) | **Claude Sonnet 4.6** | Planejamento: arquitetura, ADRs, SDD, estratégia de testes, trade-offs |
+| [Cursor](https://cursor.com) | **Composer 2.5** | Execução: boilerplate, testes, mappers, repositórios Prisma, configs Jest/Husky, seed |
 
 Sonnet 4.6 para decisões estruturais; Composer 2.5 para iteração rápida e TDD.
 
 ---
 
-## 2. Onde a IA entrou
+## 2. O que ficou humano
+
+| Responsabilidade | Por quê |
+|------------------|---------|
+| Baseline de requisitos (RF/RNF) | Espelho fiel do edital; critério de aceite |
+| ADRs e pivots (ex.: schema normalizado) | Decisões arquiteturais formais; ADR-0006 após revisão do modelo |
+| Contratos da API (`/api/v1`) | Endpoints, códigos HTTP, payloads — fonte para o frontend consumir |
+| Regras de domínio | `Article`, `Slug`, exceções `ArticleNotFound` / `DuplicateSlug` |
+| Estratégia de testes | Unitário com mocks vs integração com PG/OpenSearch reais; exclusões de cobertura |
+| CQRS leve e indexação | Quando usar PG vs OpenSearch; `search.remove()` na despublicação |
+| Deploy Render | Outbox PG + worker embutido; variáveis `FRONTEND_REVALIDATE_URL`, TTLs de cache |
+| Integração com frontend | Webhook ISR server-to-server; repos separados no GitHub |
+
+A IA acelerou a escrita; **o critério de qualidade e o “merge ou não merge” foram meus**.
+
+---
+
+## 3. Onde a IA auxiliou
 
 | Área | Contribuição da IA | Revisão / decisão final |
 |------|--------------------|-------------------------|
-| **Documentação** (`docs/`, ADRs, SDD) | Estrutura, primeira redação, tabelas, diagramas Mermaid | Alinhamento ao edital, ADRs, status ✅/🔜/📄 |
+| **Documentação** (`docs/`, ADRs, SDD, README) | Estrutura, primeira redação, tabelas, diagramas Mermaid | Alinhamento ao edital, ADRs, status ✅/🔜/📄 |
 | **Schema e seed** | Models, migrations, script inicial | Normalização (ADR-0006), FKs, índices, dados do seed |
 | **Código** (domínio, infra) | Entidades, repos Prisma/OpenSearch, `ArticlesService`, guards/filters, mappers | Regras de negócio, exceções, contratos das interfaces |
 | **Testes** | Casos iniciais, setup de integração, specs HTTP com OpenSearch real | Estratégia mock vs. banco vs. OpenSearch, cobertura, pre-commit |
 | **Infra local** | `docker-compose.yml`, `.env.example`, flag `SEARCH_REINDEX_ON_STARTUP` | Portas, health checks, validação local |
+| **Cache e webhook** | `HttpCacheInterceptor`, `FrontendCacheInvalidationService` | TTLs por rota; fire-and-forget; falha não bloqueia ingestão |
 | **Regras Cursor** (`.cursor/rules/`) | Rascunho de padrões | Consistência com ADRs e código existente |
 
----
-
-## 3. Documentação
-
-Os arquivos em `docs/` — e o [README](../README.md) — foram **redigidos com auxílio de IA e revisados manualmente**. O conteúdo publicado é o que ficou após essa revisão.
+Documentos revisados manualmente:
 
 | Documento | Foco da revisão |
 |-----------|-----------------|
@@ -47,7 +65,7 @@ Os arquivos em `docs/` — e o [README](../README.md) — foram **redigidos com 
 
 ---
 
-## 4. Decisões técnicas
+## 4. Decisões técnicas revisadas
 
 Registro de escolhas tomadas durante o projeto — em vários casos, a IA sugeriu um caminho diferente do adotado. Detalhes nos ADRs.
 
@@ -64,6 +82,8 @@ Registro de escolhas tomadas durante o projeto — em vários casos, a IA sugeri
 | Despublicar (`publishedAt: null`) | Reindexar sem `publishedAt` no OpenSearch | `search.remove()` — documento removido do índice | [arquitetura.md §4.4](./arquitetura.md#44-indexação--local-vs-produção) |
 | Reindex na subida | Full reindex em todo `onModuleInit` | `SEARCH_REINDEX_ON_STARTUP` (default `true` em dev) | [README](../README.md#variáveis-de-ambiente) |
 | Teste HTTP `?q=` | Mock de `SEARCH_REPOSITORY` no controller | Spec dedicado com OpenSearch real | `articles.controller.search.integration.spec.ts` |
+| Indexação prod | SQS real | Outbox PG + worker embutido no Render | [deploy-render.md](./deploy-render.md) |
+| Cache | Redis / ElastiCache | `Cache-Control` na API + ISR no frontend via webhook | [SDD §3.5](./SDD.md#35-cache-e-invalidação-sem-redis) |
 
 **Ajustes relevantes após rascunhos da IA:**
 
@@ -89,7 +109,8 @@ Resumo das principais sessões — objetivo, prompt essencial e resultado. Sem d
 | ADRs | *"Gere ADRs para Fastify, sem events, CQRS, ArticlesService, repository."* | 6 ADRs aceitos; ADR-0006 após pivot do schema |
 | Testes | *"Estratégia Jest: unitários no domínio, integração nos repos Prisma, Husky pre-commit."* | Mock vs. banco definido; exclusões de cobertura |
 | Normalização | *"Modelo normalizado mantendo API flat e denormalização no OpenSearch."* | 5 tabelas; `published_at` nullable — ADR-0006 |
-| Lacunas técnicas | *"Plano: teste HTTP ?q= real, unpublish remove, reindex flag, docs 400."* | 5 commits atômicos; TDD Red→Green |
+| Lacunas técnicas | *"Plano: teste HTTP ?q= real, unpublish remove, reindex flag, docs 400."* | TDD Red→Green; specs dedicados |
+| Cache sem Redis | *"Cache-Control na API + webhook para revalidar ISR do frontend após ingestão."* | Interceptor + `FrontendCacheInvalidationService` |
 
 ### Execução — Composer 2.5
 
@@ -109,21 +130,37 @@ Resumo das principais sessões — objetivo, prompt essencial e resultado. Sem d
 
 ---
 
-## 6. Resumo da solução
+## 6. Resumo da solução *(mini documento — revisado manualmente)*
 
-API REST **NestJS 11 + Fastify**, **PostgreSQL** (persistência) e **OpenSearch** (busca textual, CQRS leve). Bounded context `articles` com entidades, value objects e repositórios abstraídos; orquestração no `ArticlesService`. Infra local via Docker Compose.
+API REST **NestJS 11 + Fastify**, **PostgreSQL** (persistência) e **OpenSearch** (busca textual, CQRS leve). Bounded context `articles` com entidades, value objects e repositórios abstraídos; orquestração no `ArticlesService`. Infra local via Docker Compose; produção no [Render](https://portal-noticias-backend.onrender.com/).
 
-**Estado atual (RF01–RF10 ✅):**
+### Como a especificação guiou a implementação
+
+| Fase | O que o SDD/edital pediu | O que foi entregue |
+|------|--------------------------|-------------------|
+| 1 | RNF15 SDD + baseline RF/RNF | `docs/requisitos-*`, SDD v1, ADRs iniciais |
+| 2 | Setup NestJS + Prisma + Docker | Fastify, Compose (PG, OS, LocalStack) |
+| 3 | RF09 persistência + RF10 seed | Schema normalizado; seed 20+ artigos |
+| 4 | RF07 API + RF08 ingestão | Controllers, DTOs, `ApiKeyGuard`, `ArticlesService` |
+| 5 | RF01–RF06 leitura | Listagem PG, busca `q` no OS, detalhe por slug, filtros |
+| 6 | RNF07 testabilidade | Jest unit + integração; CI com PG/OS reais |
+| 7 | Indexação e CQRS | Sync local; Outbox + worker async no Render |
+| 8 | Cache sem Redis | `Cache-Control` + webhook ISR no [frontend](https://github.com/Lucas-Braz7x/portal-noticias-frontend) |
+
+Cada RF implementado neste repo tem rastreio no [SDD §1](./SDD.md#1-rastreabilidade). RF de interface (RF11) ficam no repositório do frontend, referenciado por link — sem acoplar paths locais na documentação.
+
+### Estado atual (RF01–RF10 ✅)
 
 | Área | Implementado |
 |------|--------------|
 | Leitura | `GET /articles` (PG), `GET /articles?q=` (OpenSearch + hidratação PG), `GET /articles/:slug` |
-| Ingestão | `POST` / `PUT` com `X-API-Key`; sync (dev) ou async Outbox + Background Worker (Render) |
+| Ingestão | `POST` / `PUT` com `X-API-Key`; sync (dev) ou async Outbox + worker embutido (Render) |
 | Segurança | `ApiKeyGuard`, validação DTO (`400`), `DomainExceptionFilter` (`404`, `409`) |
 | OpenSearch | Cliente, índice, bootstrap (`ensureIndex` + reindex opcional), testes repo + HTTP |
 | Testes | ~105 unitários + ~59 integração (PG, OpenSearch, HTTP) |
+| Deploy | [portal-noticias-backend.onrender.com](https://portal-noticias-backend.onrender.com/) |
 
-**Pendente / só documentado:** observabilidade CloudWatch/X-Ray, OpenAPI/Swagger, driver SQS real (LocalStack permanece simulação dev).
+**Pendente / só documentado:** observabilidade CloudWatch/X-Ray, OpenAPI/Swagger exposto, driver SQS real (LocalStack permanece simulação dev).
 
 → [SDD.md](./SDD.md) · [arquitetura.md](./arquitetura.md)
 
@@ -140,20 +177,37 @@ API REST **NestJS 11 + Fastify**, **PostgreSQL** (persistência) e **OpenSearch*
 | Integração separada | Confiança nos repos Prisma e OpenSearch | Requer Docker; suite mais lenta |
 | Reindex na subida (dev) | Índice consistente após restart local | Em prod exige flag `false` + job dedicado |
 | `search.remove()` na despublicação | Índice sem documentos órfãos | Operação extra no fluxo de update |
-| Outbox PG + Worker | Deploy simples no Render; transação atômica save+enqueue | Não é SQS “de verdade” em prod; consistência eventual na busca |
+| Outbox PG + worker embutido | Deploy simples no Render; transação atômica save+enqueue | Não é SQS “de verdade” em prod; consistência eventual na busca |
 | Cache sem Redis | Compatível com Render; HTTP `Cache-Control` + ISR + webhook | Sem invalidação instantânea se webhook falhar (TTL cobre) |
+| Repos separados (API + UI) | Deploy e evolução independentes | Dois SDDs e secrets (`REVALIDATE_SECRET`) para alinhar |
 
 ---
 
-## 8. Premissas e próximos passos
+## 8. Premissas, dúvidas e próximos passos
 
-**Premissas:** frontend em repo separado; ingestão via `X-API-Key`; `published_at` nullable para rascunhos; arquitetura AWS documentada como alternativa; produção Render usa Outbox PG.
+**Premissas:**
 
-**Próximos passos (diferenciais opcionais):**
+- [Frontend](https://github.com/Lucas-Braz7x/portal-noticias-frontend) em repo separado; consome esta API server-side (sem CORS).
+- Ingestão via `X-API-Key`; `published_at` nullable para rascunhos.
+- Produção Render usa Outbox PG + worker embutido (`INDEXING_MODE=async`).
+- `FRONTEND_REVALIDATE_URL` aponta para `https://portal-noticias-frontend.onrender.com/api/revalidate` quando ISR on-demand está ativo.
+- Arquitetura AWS documentada como evolução — ver [arquitetura-producao.md](./arquitetura-producao.md).
+
+**Dúvidas registradas (não bloqueantes):**
+
+- OpenSearch externo no Render vs `OPENSEARCH_ENABLED=false` — trade-off custo vs relevância na busca `q`.
+- E2E no CI exige orquestrar dois repos — adiado; validação local documentada no frontend.
+
+**Próximos passos (backend):**
 
 1. Job de reindexação em produção (`SEARCH_REINDEX_ON_STARTUP=false`)
 2. OpenAPI/Swagger exposto na API
 3. Observabilidade (correlation ID, logs estruturados, CloudWatch)
 4. Driver SQS real (além do Outbox Render)
+5. E2E no CI — job com docker-compose + frontend (cross-repo)
 
-**Implementado (diferencial):** cache HTTP + invalidação ISR via webhook; ingestão assíncrona (Outbox + Background Worker).
+**Implementado (diferencial):** cache HTTP + invalidação ISR via webhook; ingestão assíncrona (Outbox + worker embutido).
+
+---
+
+*Versão: 2.0 — Agosto/2026*
