@@ -5,9 +5,7 @@ import { of } from 'rxjs';
 import { HTTP_CACHE_KEY } from '@/shared/presentation/decorators/http-cache.decorator';
 import { HttpCacheInterceptor } from '@/shared/presentation/interceptors/http-cache.interceptor';
 
-function createContext(
-  query: Record<string, string> = {},
-): {
+function createContext(query: Record<string, string> = {}): {
   context: ExecutionContext;
   setHeader: jest.Mock;
 } {

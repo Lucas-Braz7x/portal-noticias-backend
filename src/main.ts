@@ -37,9 +37,7 @@ async function bootstrap() {
 
   const reflector = app.get(Reflector);
   const configService = app.get(ConfigService);
-  app.useGlobalInterceptors(
-    new HttpCacheInterceptor(reflector, configService),
-  );
+  app.useGlobalInterceptors(new HttpCacheInterceptor(reflector, configService));
 
   setupSwagger(app);
 

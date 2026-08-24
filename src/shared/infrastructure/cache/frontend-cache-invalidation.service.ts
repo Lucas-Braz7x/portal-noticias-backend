@@ -12,7 +12,7 @@ export class FrontendCacheInvalidationService {
   isConfigured(): boolean {
     return Boolean(
       this.config.get<string>('FRONTEND_REVALIDATE_URL') &&
-        this.config.get<string>('REVALIDATE_SECRET'),
+      this.config.get<string>('REVALIDATE_SECRET'),
     );
   }
 

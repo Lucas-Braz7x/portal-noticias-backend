@@ -67,7 +67,10 @@ describe('ArticlesController', () => {
   });
 
   it('returns 202 when indexing is pending on create', async () => {
-    const pendingResponse = { ...ingestResponse, indexingStatus: 'pending' as const };
+    const pendingResponse = {
+      ...ingestResponse,
+      indexingStatus: 'pending' as const,
+    };
     const articlesService = {
       create: jest.fn().mockResolvedValue(pendingResponse),
     } as unknown as ArticlesService;
@@ -104,7 +107,10 @@ describe('ArticlesController', () => {
   });
 
   it('returns 202 when indexing is pending on update', async () => {
-    const pendingResponse = { ...ingestResponse, indexingStatus: 'pending' as const };
+    const pendingResponse = {
+      ...ingestResponse,
+      indexingStatus: 'pending' as const,
+    };
     const articlesService = {
       update: jest.fn().mockResolvedValue(pendingResponse),
     } as unknown as ArticlesService;

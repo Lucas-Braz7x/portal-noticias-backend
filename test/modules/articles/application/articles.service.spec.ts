@@ -533,11 +533,13 @@ describe('ArticlesService', () => {
     });
 
     it('enqueues INDEX job and skips search when INDEXING_MODE is async', async () => {
-      configService.get.mockImplementation((key: string, defaultValue?: unknown) => {
-        if (key === 'INDEXING_MODE') return 'async';
-        if (key === 'OPENSEARCH_ENABLED') return 'true';
-        return defaultValue;
-      });
+      configService.get.mockImplementation(
+        (key: string, defaultValue?: unknown) => {
+          if (key === 'INDEXING_MODE') return 'async';
+          if (key === 'OPENSEARCH_ENABLED') return 'true';
+          return defaultValue;
+        },
+      );
       mockSuccessfulRefs();
 
       const result = await service.create(createInput);
@@ -614,11 +616,13 @@ describe('ArticlesService', () => {
     });
 
     it('enqueues REMOVE job when unpublishing in async mode', async () => {
-      configService.get.mockImplementation((key: string, defaultValue?: unknown) => {
-        if (key === 'INDEXING_MODE') return 'async';
-        if (key === 'OPENSEARCH_ENABLED') return 'true';
-        return defaultValue;
-      });
+      configService.get.mockImplementation(
+        (key: string, defaultValue?: unknown) => {
+          if (key === 'INDEXING_MODE') return 'async';
+          if (key === 'OPENSEARCH_ENABLED') return 'true';
+          return defaultValue;
+        },
+      );
       const article = createPublishedArticle();
       articlesRepository.findById.mockResolvedValue(article);
       articlesRepository.update.mockImplementation((updated) =>

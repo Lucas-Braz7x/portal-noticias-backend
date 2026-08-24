@@ -1,7 +1,6 @@
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { Client } from '@opensearch-project/opensearch';
-import { PrismaService } from '@/prisma/prisma.service';
 import { PrismaModule } from '@/prisma/prisma.module';
 import { ArticlesModule } from '@/modules/articles/articles.module';
 import { ARTICLE_REPOSITORY } from '@/modules/articles/domain/repositories/article.repository';
@@ -19,7 +18,10 @@ import {
   getOpenSearchNode,
   isOpenSearchAvailable,
 } from '../../../../helpers/opensearch.helper';
-import { getTestPrisma, resetTables } from '../../../../helpers/database.helper';
+import {
+  getTestPrisma,
+  resetTables,
+} from '../../../../helpers/database.helper';
 import { seedArticleRefs } from '../../../../helpers/fixtures.helper';
 import { Article } from '@/modules/articles/domain/entities/article.entity';
 
@@ -41,7 +43,11 @@ describe('IndexWorkerService with OpenSearch (integration)', () => {
     process.env.OPENSEARCH_NODE = getOpenSearchNode();
 
     const moduleRef = await Test.createTestingModule({
-      imports: [ConfigModule.forRoot({ isGlobal: true }), PrismaModule, ArticlesModule],
+      imports: [
+        ConfigModule.forRoot({ isGlobal: true }),
+        PrismaModule,
+        ArticlesModule,
+      ],
     })
       .overrideProvider(ArticlesSearchBootstrap)
       .useValue({ onModuleInit: async () => undefined })
