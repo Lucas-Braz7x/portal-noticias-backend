@@ -29,6 +29,7 @@ export interface ArticleIngestResponse {
   author: string;
   category: ReferenceItemResponse;
   tags: ReferenceItemResponse[];
+  indexingStatus: 'pending' | 'completed';
 }
 
 export class ArticleResponseMapper {
@@ -57,7 +58,10 @@ export class ArticleResponseMapper {
     };
   }
 
-  static toIngest(article: Article): ArticleIngestResponse {
+  static toIngest(
+    article: Article,
+    indexingStatus: 'pending' | 'completed' = 'completed',
+  ): ArticleIngestResponse {
     return {
       id: article.id,
       slug: article.slug,
@@ -74,6 +78,7 @@ export class ArticleResponseMapper {
         name: tag.name,
         slug: tag.slug,
       })),
+      indexingStatus,
     };
   }
 }

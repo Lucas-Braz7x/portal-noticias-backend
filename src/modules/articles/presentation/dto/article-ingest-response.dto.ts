@@ -41,4 +41,10 @@ export class ArticleIngestResponseDto {
     ],
   })
   tags!: ReferenceItemDto[];
+
+  @ApiProperty({
+    enum: ['pending', 'completed'],
+    example: 'completed',
+  })
+  indexingStatus!: 'pending' | 'completed';
 }

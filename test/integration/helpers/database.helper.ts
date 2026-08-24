@@ -120,6 +120,7 @@ export async function disconnectTestPrisma(): Promise<void> {
 export async function resetTables(prisma: PrismaClient): Promise<void> {
   await prisma.$executeRawUnsafe(`
     TRUNCATE TABLE
+      index_jobs,
       article_tags,
       articles,
       tags,

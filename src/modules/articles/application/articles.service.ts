@@ -22,6 +22,10 @@ import {
   ISearchRepository,
 } from '../domain/repositories/search.repository';
 import {
+  INDEX_JOB_REPOSITORY,
+  IIndexJobRepository,
+} from '../domain/repositories/index-job.repository';
+import {
   TAG_REPOSITORY,
   ITagRepository,
 } from '../domain/repositories/tag.repository';
@@ -30,6 +34,8 @@ import { isOpenSearchEnabled } from '../infrastructure/opensearch/opensearch.con
 import { ArticleMapper } from '../infrastructure/mappers/article.mapper';
 import { ArticleResponseMapper } from '../presentation/mappers/article-response.mapper';
 import { ReferenceResponseMapper } from '../presentation/mappers/reference-response.mapper';
+import { FrontendCacheInvalidationService } from '../../../shared/infrastructure/cache/frontend-cache-invalidation.service';
+import { isAsyncIndexing } from '../../../shared/config/indexing.config';
 
 export interface ListArticlesInput {
   q?: string;
@@ -72,7 +78,10 @@ export class ArticlesService {
     private readonly categories: ICategoryRepository,
     @Inject(TAG_REPOSITORY)
     private readonly tags: ITagRepository,
+    @Inject(INDEX_JOB_REPOSITORY)
+    private readonly indexJobs: IIndexJobRepository,
     private readonly config: ConfigService,
+    private readonly frontendCacheInvalidation: FrontendCacheInvalidationService,
   ) {}
 
   async list(params: ListArticlesInput) {
@@ -169,9 +178,14 @@ export class ArticlesService {
     });
 
     const saved = await this.articles.save(article);
-    await this.search.index(ArticleMapper.toSearchDocument(saved));
 
-    return ArticleResponseMapper.toIngest(saved);
+    if (isAsyncIndexing(this.config)) {
+      await this.scheduleIndexing(saved, false);
+      return ArticleResponseMapper.toIngest(saved, 'pending');
+    }
+
+    await this.indexSynchronously(saved, false);
+    return ArticleResponseMapper.toIngest(saved, 'completed');
   }
 
   async update(id: string, input: UpdateArticleInput) {
@@ -181,6 +195,7 @@ export class ArticlesService {
       throw new ArticleNotFoundException(id);
     }
 
+    const wasPublished = article.isPublished();
     const [author, category, tags] = await Promise.all([
       input.author
         ? this.authors.findOrCreateByName(input.author)
@@ -210,13 +225,13 @@ export class ArticlesService {
 
     const updated = await this.articles.update(article);
 
-    if (updated.isPublished()) {
-      await this.search.index(ArticleMapper.toSearchDocument(updated));
-    } else {
-      await this.search.remove(updated.id);
+    if (isAsyncIndexing(this.config)) {
+      await this.scheduleIndexing(updated, wasPublished);
+      return ArticleResponseMapper.toIngest(updated, 'pending');
     }
 
-    return ArticleResponseMapper.toIngest(updated);
+    await this.indexSynchronously(updated, wasPublished);
+    return ArticleResponseMapper.toIngest(updated, 'completed');
   }
 
   async listCategories() {
@@ -258,5 +273,32 @@ export class ArticlesService {
 
   private toTagRef(tag: Tag) {
     return { id: tag.id, name: tag.name, slug: tag.slugValue };
+  }
+
+  private async scheduleIndexing(
+    article: Article,
+    wasPublished: boolean,
+  ): Promise<void> {
+    if (article.isPublished()) {
+      await this.indexJobs.enqueue(article.id, 'INDEX');
+      return;
+    }
+
+    if (wasPublished) {
+      await this.indexJobs.enqueue(article.id, 'REMOVE');
+    }
+  }
+
+  private async indexSynchronously(
+    article: Article,
+    wasPublished: boolean,
+  ): Promise<void> {
+    if (article.isPublished()) {
+      await this.search.index(ArticleMapper.toSearchDocument(article));
+    } else if (wasPublished) {
+      await this.search.remove(article.id);
+    }
+
+    this.frontendCacheInvalidation.invalidate();
   }
 }

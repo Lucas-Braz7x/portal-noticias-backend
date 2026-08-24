@@ -1,4 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Reflector } from '@nestjs/core';
 import { NestFactory } from '@nestjs/core';
 import {
   FastifyAdapter,
@@ -10,6 +12,7 @@ import {
   SWAGGER_PATH,
 } from './shared/presentation/swagger/setup-swagger';
 import { DomainExceptionFilter } from './shared/presentation/filters/domain-exception.filter';
+import { HttpCacheInterceptor } from './shared/presentation/interceptors/http-cache.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -31,6 +34,12 @@ async function bootstrap() {
   );
 
   app.useGlobalFilters(new DomainExceptionFilter());
+
+  const reflector = app.get(Reflector);
+  const configService = app.get(ConfigService);
+  app.useGlobalInterceptors(
+    new HttpCacheInterceptor(reflector, configService),
+  );
 
   setupSwagger(app);
 

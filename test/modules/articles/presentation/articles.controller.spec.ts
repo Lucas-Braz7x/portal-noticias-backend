@@ -1,7 +1,9 @@
+import { HttpStatus } from '@nestjs/common';
 import { ArticlesService } from '@/modules/articles/application/articles.service';
 import { ArticlesController } from '@/modules/articles/presentation/articles.controller';
 import { CreateArticleDto } from '@/modules/articles/presentation/dto/create-article.dto';
 import { UpdateArticleDto } from '@/modules/articles/presentation/dto/update-article.dto';
+import { FastifyReply } from 'fastify';
 
 describe('ArticlesController', () => {
   const ingestResponse = {
@@ -14,6 +16,15 @@ describe('ArticlesController', () => {
     author: 'Maria Silva',
     category: { name: 'Política', slug: 'politica' },
     tags: [{ name: 'Eleições', slug: 'eleicoes' }],
+    indexingStatus: 'completed' as const,
+  };
+
+  const createMockReply = (): FastifyReply => {
+    const reply = {
+      status: jest.fn().mockReturnThis(),
+    };
+
+    return reply as unknown as FastifyReply;
   };
 
   it('delegates list to ArticlesService', async () => {
@@ -46,11 +57,35 @@ describe('ArticlesController', () => {
       category: 'Política',
       tags: ['Eleições'],
     } as CreateArticleDto;
+    const res = createMockReply();
 
-    const result = await controller.create(dto);
+    const result = await controller.create(dto, res);
 
     expect(articlesService.create).toHaveBeenCalledWith(dto);
     expect(result).toEqual(ingestResponse);
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('returns 202 when indexing is pending on create', async () => {
+    const pendingResponse = { ...ingestResponse, indexingStatus: 'pending' as const };
+    const articlesService = {
+      create: jest.fn().mockResolvedValue(pendingResponse),
+    } as unknown as ArticlesService;
+    const controller = new ArticlesController(articlesService);
+    const dto = {
+      title: 'Título',
+      summary: 'Resumo',
+      content: 'Conteúdo',
+      author: 'Maria Silva',
+      category: 'Política',
+      tags: ['Eleições'],
+    } as CreateArticleDto;
+    const res = createMockReply();
+
+    const result = await controller.create(dto, res);
+
+    expect(result).toEqual(pendingResponse);
+    expect(res.status).toHaveBeenCalledWith(HttpStatus.ACCEPTED);
   });
 
   it('delegates update to ArticlesService', async () => {
@@ -59,10 +94,27 @@ describe('ArticlesController', () => {
     } as unknown as ArticlesService;
     const controller = new ArticlesController(articlesService);
     const dto = { title: 'Título atualizado' } as UpdateArticleDto;
+    const res = createMockReply();
 
-    const result = await controller.update('article-1', dto);
+    const result = await controller.update('article-1', dto, res);
 
     expect(articlesService.update).toHaveBeenCalledWith('article-1', dto);
     expect(result).toEqual(ingestResponse);
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('returns 202 when indexing is pending on update', async () => {
+    const pendingResponse = { ...ingestResponse, indexingStatus: 'pending' as const };
+    const articlesService = {
+      update: jest.fn().mockResolvedValue(pendingResponse),
+    } as unknown as ArticlesService;
+    const controller = new ArticlesController(articlesService);
+    const dto = { title: 'Título atualizado' } as UpdateArticleDto;
+    const res = createMockReply();
+
+    const result = await controller.update('article-1', dto, res);
+
+    expect(result).toEqual(pendingResponse);
+    expect(res.status).toHaveBeenCalledWith(HttpStatus.ACCEPTED);
   });
 });

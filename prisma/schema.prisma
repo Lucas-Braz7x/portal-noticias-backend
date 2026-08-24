@@ -109,3 +109,30 @@ model ArticleTag {
   @@index([tagId])
   @@map("article_tags")
 }
+
+enum IndexJobAction {
+  INDEX
+  REMOVE
+}
+
+enum IndexJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+/// Fila outbox para indexação assíncrona no OpenSearch (Render Background Worker).
+model IndexJob {
+  id          String         @id @default(uuid()) @db.Uuid
+  articleId   String         @map("article_id") @db.Uuid
+  action      IndexJobAction
+  status      IndexJobStatus @default(PENDING)
+  attempts    Int            @default(0)
+  lastError   String?        @map("last_error")
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  processedAt DateTime?      @map("processed_at") @db.Timestamptz(6)
+
+  @@index([status, createdAt])
+  @@map("index_jobs")
+}

@@ -24,6 +24,7 @@ describe('ArticleResponseMapper', () => {
       summary: article.summary,
       content: article.content,
       publishedAt: '2026-01-15T10:00:00.000Z',
+      indexingStatus: 'completed',
       author: 'Maria Silva',
       category: { name: 'Política', slug: 'politica' },
       tags: [{ name: 'Eleições', slug: 'eleicoes' }],

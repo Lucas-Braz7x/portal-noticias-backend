@@ -9,9 +9,11 @@ import {
   Post,
   Put,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiAcceptedResponse,
   ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -20,7 +22,9 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { FastifyReply } from 'fastify';
 import { ArticlesService } from '../application/articles.service';
+import { HttpCache } from '../../../shared/presentation/decorators/http-cache.decorator';
 import { ApiKeyGuard } from '../../../shared/presentation/guards/api-key.guard';
 import { ArticleDetailDto } from './dto/article-detail.dto';
 import { ArticleIngestResponseDto } from './dto/article-ingest-response.dto';
@@ -35,6 +39,7 @@ export class ArticlesController {
   constructor(private readonly articlesService: ArticlesService) {}
 
   @Get()
+  @HttpCache({ profile: 'articles', searchAware: true })
   @ApiOperation({
     summary: 'Listar artigos publicados',
     description:
@@ -51,9 +56,22 @@ export class ArticlesController {
   @ApiSecurity('ingest-api-key')
   @ApiOperation({ summary: 'Criar artigo (RF08)' })
   @ApiCreatedResponse({ type: ArticleIngestResponseDto })
+  @ApiAcceptedResponse({
+    type: ArticleIngestResponseDto,
+    description: 'Indexação assíncrona enfileirada (INDEXING_MODE=async)',
+  })
   @ApiUnauthorizedResponse({ description: 'Chave de API inválida' })
-  create(@Body() dto: CreateArticleDto) {
-    return this.articlesService.create(dto);
+  async create(
+    @Body() dto: CreateArticleDto,
+    @Res({ passthrough: true }) res: FastifyReply,
+  ) {
+    const result = await this.articlesService.create(dto);
+
+    if (result.indexingStatus === 'pending') {
+      void res.status(HttpStatus.ACCEPTED);
+    }
+
+    return result;
   }
 
   @Put(':id')
@@ -61,16 +79,28 @@ export class ArticlesController {
   @ApiSecurity('ingest-api-key')
   @ApiOperation({ summary: 'Atualizar artigo (RF08)' })
   @ApiOkResponse({ type: ArticleIngestResponseDto })
+  @ApiAcceptedResponse({
+    type: ArticleIngestResponseDto,
+    description: 'Indexação assíncrona enfileirada (INDEXING_MODE=async)',
+  })
   @ApiUnauthorizedResponse({ description: 'Chave de API inválida' })
   @ApiNotFoundResponse({ description: 'Artigo não encontrado' })
-  update(
+  async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateArticleDto,
+    @Res({ passthrough: true }) res: FastifyReply,
   ) {
-    return this.articlesService.update(id, dto);
+    const result = await this.articlesService.update(id, dto);
+
+    if (result.indexingStatus === 'pending') {
+      void res.status(HttpStatus.ACCEPTED);
+    }
+
+    return result;
   }
 
   @Get(':slug')
+  @HttpCache({ profile: 'articles' })
   @ApiOperation({ summary: 'Detalhe de artigo publicado (RF06)' })
   @ApiOkResponse({ type: ArticleDetailDto })
   @ApiNotFoundResponse({ description: 'Artigo não encontrado' })

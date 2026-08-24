@@ -9,8 +9,10 @@ import { IAuthorRepository } from '@/modules/articles/domain/repositories/author
 import { ICategoryRepository } from '@/modules/articles/domain/repositories/category.repository';
 import { ITagRepository } from '@/modules/articles/domain/repositories/tag.repository';
 import { ISearchRepository } from '@/modules/articles/domain/repositories/search.repository';
+import { IIndexJobRepository } from '@/modules/articles/domain/repositories/index-job.repository';
 import { ArticlesService } from '@/modules/articles/application/articles.service';
 import { ArticleMapper } from '@/modules/articles/infrastructure/mappers/article.mapper';
+import { FrontendCacheInvalidationService } from '@/shared/infrastructure/cache/frontend-cache-invalidation.service';
 
 const author = { id: 'author-1', name: 'Maria Silva' };
 const category = { id: 'cat-1', name: 'Política', slug: 'politica' };
@@ -60,7 +62,9 @@ describe('ArticlesService', () => {
   let authorsRepository: jest.Mocked<IAuthorRepository>;
   let categoriesRepository: jest.Mocked<ICategoryRepository>;
   let tagsRepository: jest.Mocked<ITagRepository>;
+  let indexJobsRepository: jest.Mocked<IIndexJobRepository>;
   let configService: jest.Mocked<ConfigService>;
+  let frontendCacheInvalidation: jest.Mocked<FrontendCacheInvalidationService>;
   let service: ArticlesService;
 
   beforeEach(() => {
@@ -97,15 +101,31 @@ describe('ArticlesService', () => {
       findOrCreateMany: jest.fn(),
     };
 
+    indexJobsRepository = {
+      enqueue: jest.fn(),
+      claimNextBatch: jest.fn(),
+      markCompleted: jest.fn(),
+      markFailed: jest.fn(),
+    };
+
     configService = {
       get: jest.fn((key: string, defaultValue?: unknown) => {
         if (key === 'OPENSEARCH_ENABLED') {
           return 'true';
         }
 
+        if (key === 'INDEXING_MODE') {
+          return 'sync';
+        }
+
         return defaultValue;
       }),
     } as unknown as jest.Mocked<ConfigService>;
+
+    frontendCacheInvalidation = {
+      invalidate: jest.fn(),
+      isConfigured: jest.fn().mockReturnValue(false),
+    } as unknown as jest.Mocked<FrontendCacheInvalidationService>;
 
     service = new ArticlesService(
       articlesRepository,
@@ -113,7 +133,9 @@ describe('ArticlesService', () => {
       authorsRepository,
       categoriesRepository,
       tagsRepository,
+      indexJobsRepository,
       configService,
+      frontendCacheInvalidation,
     );
   });
 
@@ -448,6 +470,7 @@ describe('ArticlesService', () => {
           tags: ['economia', 'brasil'],
         }),
       );
+      expect(frontendCacheInvalidation.invalidate).toHaveBeenCalledTimes(1);
       expect(result.id).toEqual(expect.any(String));
       expect(result).toEqual(
         expect.objectContaining({
@@ -508,6 +531,25 @@ describe('ArticlesService', () => {
       expect(saved?.publishedAt).toBeNull();
       expect(result.publishedAt).toBeNull();
     });
+
+    it('enqueues INDEX job and skips search when INDEXING_MODE is async', async () => {
+      configService.get.mockImplementation((key: string, defaultValue?: unknown) => {
+        if (key === 'INDEXING_MODE') return 'async';
+        if (key === 'OPENSEARCH_ENABLED') return 'true';
+        return defaultValue;
+      });
+      mockSuccessfulRefs();
+
+      const result = await service.create(createInput);
+
+      expect(indexJobsRepository.enqueue).toHaveBeenCalledWith(
+        expect.any(String),
+        'INDEX',
+      );
+      expect(searchRepository.index).not.toHaveBeenCalled();
+      expect(frontendCacheInvalidation.invalidate).not.toHaveBeenCalled();
+      expect(result.indexingStatus).toBe('pending');
+    });
   });
 
   describe('update', () => {
@@ -529,6 +571,7 @@ describe('ArticlesService', () => {
       expect(searchRepository.index).toHaveBeenCalledWith(
         ArticleMapper.toSearchDocument(article),
       );
+      expect(frontendCacheInvalidation.invalidate).toHaveBeenCalledTimes(1);
       expect(result.title).toBe('Título atualizado');
       expect(result.slug).toBe('como-a-ia-esta-mudando-o-jornalismo');
     });
@@ -567,6 +610,29 @@ describe('ArticlesService', () => {
       expect(result.publishedAt).toBeNull();
       expect(searchRepository.remove).toHaveBeenCalledWith(article.id);
       expect(searchRepository.index).not.toHaveBeenCalled();
+      expect(frontendCacheInvalidation.invalidate).toHaveBeenCalledTimes(1);
+    });
+
+    it('enqueues REMOVE job when unpublishing in async mode', async () => {
+      configService.get.mockImplementation((key: string, defaultValue?: unknown) => {
+        if (key === 'INDEXING_MODE') return 'async';
+        if (key === 'OPENSEARCH_ENABLED') return 'true';
+        return defaultValue;
+      });
+      const article = createPublishedArticle();
+      articlesRepository.findById.mockResolvedValue(article);
+      articlesRepository.update.mockImplementation((updated) =>
+        Promise.resolve(updated),
+      );
+
+      const result = await service.update(article.id, { publishedAt: null });
+
+      expect(indexJobsRepository.enqueue).toHaveBeenCalledWith(
+        article.id,
+        'REMOVE',
+      );
+      expect(searchRepository.remove).not.toHaveBeenCalled();
+      expect(result.indexingStatus).toBe('pending');
     });
 
     it('throws ArticleNotFoundException when id does not exist', async () => {
