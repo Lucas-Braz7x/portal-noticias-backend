@@ -51,7 +51,10 @@ export class PrismaIndexJobRepository implements IIndexJobRepository {
 
       await tx.indexJob.updateMany({
         where: { id: { in: ids } },
-        data: { status: 'PROCESSING' },
+        data: {
+          status: 'PROCESSING',
+          claimedAt: new Date(),
+        },
       });
 
       return rows.map((row) => ({
@@ -59,6 +62,23 @@ export class PrismaIndexJobRepository implements IIndexJobRepository {
         status: 'PROCESSING' as const,
       }));
     });
+  }
+
+  async recoverStaleJobs(staleAfterMs: number): Promise<number> {
+    const threshold = new Date(Date.now() - staleAfterMs);
+
+    const result = await this.prisma.indexJob.updateMany({
+      where: {
+        status: 'PROCESSING',
+        OR: [{ claimedAt: null }, { claimedAt: { lt: threshold } }],
+      },
+      data: {
+        status: 'PENDING',
+        claimedAt: null,
+      },
+    });
+
+    return result.count;
   }
 
   async markCompleted(id: string): Promise<void> {

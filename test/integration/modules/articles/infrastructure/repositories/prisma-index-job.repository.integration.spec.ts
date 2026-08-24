@@ -58,6 +58,38 @@ describe('PrismaIndexJobRepository (integration)', () => {
     expect(persisted.processedAt).not.toBeNull();
   });
 
+  it('recoverStaleJobs resets processing jobs claimed too long ago', async () => {
+    const articleId = '00000000-0000-4000-8000-000000000005';
+    await repository.enqueue(articleId, 'INDEX');
+    const [job] = await repository.claimNextBatch(1);
+
+    const staleClaimedAt = new Date(Date.now() - 120_000);
+    await getTestPrisma().indexJob.update({
+      where: { id: job.id },
+      data: { claimedAt: staleClaimedAt },
+    });
+
+    const recovered = await repository.recoverStaleJobs(60_000);
+
+    expect(recovered).toBe(1);
+
+    const persisted = await getTestPrisma().indexJob.findFirstOrThrow();
+    expect(persisted.status).toBe('PENDING');
+    expect(persisted.claimedAt).toBeNull();
+  });
+
+  it('recoverStaleJobs leaves recently claimed processing jobs untouched', async () => {
+    await repository.enqueue('00000000-0000-4000-8000-000000000006', 'INDEX');
+    await repository.claimNextBatch(1);
+
+    const recovered = await repository.recoverStaleJobs(60_000);
+
+    expect(recovered).toBe(0);
+
+    const persisted = await getTestPrisma().indexJob.findFirstOrThrow();
+    expect(persisted.status).toBe('PROCESSING');
+  });
+
   it('markFailed requeues job until max attempts', async () => {
     await repository.enqueue('00000000-0000-4000-8000-000000000004', 'INDEX');
     const [job] = await repository.claimNextBatch(1);
