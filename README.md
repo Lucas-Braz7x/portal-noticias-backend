@@ -94,12 +94,7 @@ yarn start:worker
 
 A API estará disponível em `http://localhost:3000/api/v1`.
 
-Em desenvolvimento, a indexação é **síncrona** (`INDEXING_MODE=sync`, default). Para testar o fluxo assíncrono localmente, defina `INDEXING_MODE=async` e rode o worker em outro terminal:
-
-```bash
-INDEXING_MODE=async yarn start:dev   # terminal 1
-yarn build && yarn start:worker      # terminal 2
-```
+Em desenvolvimento, a indexação é **síncrona** (`INDEXING_MODE=sync`, default). Com `INDEXING_MODE=async`, o worker embutido sobe junto com a API (`INDEX_WORKER_AUTOSTART=true`) e drena jobs pendentes na subida — não é preciso rodar `yarn start:worker` em outro terminal. Para um processo dedicado (produção), use `yarn build && yarn start:worker` e defina `INDEX_WORKER_AUTOSTART=false` na API.
 
 ### Health check
 
@@ -231,7 +226,7 @@ Arquivos excluídos da cobertura unitária: bootstrap (`main.ts`, módulos Nest)
 
 ## CI
 
-O pipeline em [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda em **push** e **pull request** para `main`/`master`, com **Node.js 22** e quatro jobs em paralelo:
+O pipeline em [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda em **push** e **pull request** para `main`/`master`, com **Node.js 22**:
 
 | Job           | Comando(s)                       | Infra                                      |
 | ------------- | -------------------------------- | ------------------------------------------ |
@@ -239,6 +234,9 @@ O pipeline em [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda em **p
 | `unit`        | `yarn test:cov`                  | —                                          |
 | `build`       | `yarn build`                     | —                                          |
 | `integration` | `yarn test:integration`          | PostgreSQL + OpenSearch (`docker compose`) |
+| `deploy`      | deploy hook Render               | só em **push** em `main`, após jobs acima  |
+
+O job `deploy` dispara o deploy de produção no Render via secret `RENDER_DEPLOY_HOOK_URL`. PR previews são criados automaticamente pelo Render (não via hook). Ver [docs/deploy-render.md § CI/CD](docs/deploy-render.md#4-cicd-github-actions--render).
 
 Para reproduzir localmente os mesmos passos do CI:
 
@@ -267,7 +265,9 @@ yarn test:integration
 | `CACHE_CATALOG_MAX_AGE`     | TTL do `Cache-Control` em `/categories` e `/tags` (segundos)                                                                  | `300`                         |
 | `FRONTEND_REVALIDATE_URL`   | URL do webhook ISR do frontend (ex.: `https://seu-app.onrender.com/api/revalidate`)                                           | — (opcional)                  |
 | `REVALIDATE_SECRET`         | Segredo compartilhado com o frontend para invalidação on-demand                                                               | — (opcional)                  |
-| `INDEXING_MODE`             | `sync` (dev) ou `async` (Render API) — enfileira em `index_jobs` sem indexar na hora                                          | `sync`                        |
+| `INDEXING_MODE`             | `sync` (dev) ou `async` — enfileira em `index_jobs` sem indexar na hora                                                       | `sync`                        |
+| `INDEX_WORKER_AUTOSTART`    | Sobe o worker embutido junto com a API quando `INDEXING_MODE=async`                                                           | `true`                        |
+| `INDEX_WORKER_STALE_MS`     | Jobs `PROCESSING` órfãos voltam para `PENDING` após esse tempo (ms)                                                           | `60000`                       |
 | `INDEX_WORKER_POLL_MS`      | Intervalo de poll do worker (ms)                                                                                              | `2000`                        |
 | `INDEX_WORKER_BATCH_SIZE`   | Jobs por lote no worker                                                                                                       | `5`                           |
 | `INDEX_WORKER_MAX_ATTEMPTS` | Tentativas antes de marcar job como `FAILED`                                                                                  | `5`                           |
@@ -282,7 +282,7 @@ yarn test:integration
 - **API:** respostas `GET` públicas recebem `Cache-Control` com TTL configurável (`CACHE_*_MAX_AGE`).
 - **Frontend:** ISR via Next.js (`revalidate` + `tags` no repo frontend).
 - **Invalidação (sync):** após `POST/PUT`, a API chama `FRONTEND_REVALIDATE_URL` (fire-and-forget).
-- **Invalidação (async):** o **Background Worker** chama o webhook após indexação bem-sucedida. Configure `FRONTEND_REVALIDATE_URL` e `REVALIDATE_SECRET` na API **e** no worker.
+- **Invalidação (async):** o worker embutido (`INDEX_WORKER_AUTOSTART=true`) chama o webhook após indexação bem-sucedida. Configure `FRONTEND_REVALIDATE_URL` e `REVALIDATE_SECRET` na API.
 
 Deploy completo: [docs/deploy-render.md](docs/deploy-render.md).
 

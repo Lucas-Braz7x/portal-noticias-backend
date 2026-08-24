@@ -1,20 +1,21 @@
-# Deploy no Render — API + Index Worker + Frontend
+# Deploy no Render — API + Frontend
 
-Guia para publicar o portal com **ingestão assíncrona** (Outbox PostgreSQL + Background Worker), sem SQS em produção.
+Guia para publicar o portal com **ingestão assíncrona** (Outbox PostgreSQL + worker embutido na API), sem SQS em produção.
 
 ## Visão geral
 
 | Serviço Render | Tipo | Start command | Repositório |
 |----------------|------|---------------|-------------|
 | `portal-noticias-api` | Web Service | `yarn start:prod` | `portal-noticias-backend` |
-| `portal-noticias-indexer` | **Background Worker** | `yarn start:worker` | `portal-noticias-backend` (mesmo repo) |
 | `portal-noticias-frontend` | Web Service | `yarn start` | `portal-noticias-frontend` |
+
+Com `INDEXING_MODE=async` e `INDEX_WORKER_AUTOSTART=true` (default), o **worker de indexação roda embutido no mesmo processo da API** — não é necessário um Background Worker separado no Render.
 
 Fluxo de ingestão:
 
 ```
 POST/PUT → API salva no PG + insere index_jobs → 202 Accepted
-Worker → poll index_jobs → index/remove OpenSearch → revalidate frontend
+Worker embutido → poll index_jobs → index/remove OpenSearch → revalidate frontend
 ```
 
 ## Pré-requisitos
@@ -23,6 +24,7 @@ Worker → poll index_jobs → index/remove OpenSearch → revalidate frontend
 - PostgreSQL gerenciado (Render Postgres ou externo)
 - OpenSearch externo (Bonsai, AWS OpenSearch) **ou** `OPENSEARCH_ENABLED=false` (busca `q` via PostgreSQL)
 - Frontend já deployado com `/api/revalidate` configurado
+- Repositórios conectados ao GitHub
 
 ## 1. PostgreSQL
 
@@ -47,6 +49,7 @@ DATABASE_URL="<url>" yarn prisma migrate deploy
 |----------|----------------|
 | `DATABASE_URL` | Connection string do Postgres |
 | `INDEXING_MODE` | `async` |
+| `INDEX_WORKER_AUTOSTART` | `true` (worker embutido na API) |
 | `INGEST_API_KEY` | Segredo forte |
 | `OPENSEARCH_ENABLED` | `true` ou `false` |
 | `OPENSEARCH_NODE` | URL do cluster externo |
@@ -57,40 +60,54 @@ DATABASE_URL="<url>" yarn prisma migrate deploy
 | `CACHE_SEARCH_MAX_AGE` | `30` |
 | `CACHE_CATALOG_MAX_AGE` | `300` |
 
-Com `INDEXING_MODE=async`, `POST`/`PUT` retornam **202 Accepted** e `indexingStatus: "pending"`. A API **não** indexa no OpenSearch nem chama o webhook de revalidação — isso fica com o worker.
+Com `INDEXING_MODE=async`, `POST`/`PUT` retornam **202 Accepted** e `indexingStatus: "pending"`. A API enfileira em `index_jobs`; o worker embutido indexa no OpenSearch e chama o webhook de revalidação.
 
-## 3. Index Worker (Background Worker)
-
-Crie um **Background Worker** apontando para o **mesmo repositório** do backend.
+## 3. Frontend (Web Service)
 
 | Campo | Valor |
 |-------|-------|
 | Build Command | `yarn install && yarn build` |
-| Start Command | `yarn start:worker` |
+| Start Command | `yarn start` |
 
-**Variáveis de ambiente (Worker):**
+Configure:
 
-| Variável | Obrigatória | Notas |
-|----------|-------------|-------|
-| `DATABASE_URL` | Sim | Mesma da API |
-| `OPENSEARCH_ENABLED` | Sim | Igual à API |
-| `OPENSEARCH_NODE` | Se OS habilitado | Igual à API |
-| `FRONTEND_REVALIDATE_URL` | Recomendado | Webhook após indexação |
-| `REVALIDATE_SECRET` | Recomendado | Igual ao frontend |
-| `INDEX_WORKER_POLL_MS` | Não | Default `2000` |
-| `INDEX_WORKER_BATCH_SIZE` | Não | Default `5` |
-| `INDEX_WORKER_MAX_ATTEMPTS` | Não | Default `5` |
+- `API_URL` apontando para a API Render (ex.: `https://sua-api.onrender.com/api/v1`)
+- `NEXT_PUBLIC_SITE_URL` com a URL pública do frontend
+- `REVALIDATE_SECRET` igual ao backend
 
-**Não** configure `INDEXING_MODE` no worker — ele sempre consome a tabela `index_jobs`.
+## 4. CI/CD (GitHub Actions + Render)
 
-O worker não expõe HTTP; é um processo long-running ideal para [Render Background Workers](https://render.com/docs/background-workers).
+### Fluxo
 
-## 4. Frontend (Web Service)
+| Evento | GitHub Actions | Render |
+|--------|----------------|--------|
+| Pull request | CI (`quality`, `unit`, `build`, integração no backend) | PR Preview automático (dashboard) |
+| Push em `main` com CI verde | Job `deploy` dispara deploy hook | Build e deploy de produção |
 
-Sem mudanças específicas para ingestão assíncrona. Configure:
+O deploy de **produção** só ocorre após todos os jobs de CI passarem. PR previews são criados pelo Render (não via deploy hook).
 
-- `API_BASE_URL` apontando para a API Render
-- `REVALIDATE_SECRET` igual ao backend/worker
+### Dashboard Render (configuração manual)
+
+Para cada serviço web (API e frontend):
+
+1. **Settings → Build & Deploy → Auto-Deploy**: **No** — evita deploy paralelo ao CI; produção só via hook após CI verde.
+2. **Settings → Deploy Hook**: copiar a URL do hook para o secret do GitHub (ver abaixo).
+3. **Previews → Pull Request Previews**: **Automatic** (opcional: Auto-delete ao fechar/mergear PR).
+
+### Secrets no GitHub
+
+Em cada repositório: **Settings → Secrets and variables → Actions**:
+
+| Repositório | Secret | Valor |
+|-------------|--------|-------|
+| `portal-noticias-backend` | `RENDER_DEPLOY_HOOK_URL` | Deploy hook da API |
+| `portal-noticias-frontend` | `RENDER_DEPLOY_HOOK_URL` | Deploy hook do frontend |
+
+Nunca commitar URLs de deploy hook no repositório. Se uma hook foi exposta, use **Regenerate Hook** no Render ([documentação](https://render.com/docs/deploy-hooks)).
+
+### Preview do frontend (limitação cross-repo)
+
+Frontend e backend são repos separados; números de PR não coincidem. Para previews do frontend, defina `API_URL` nas **Preview Environment Variables** apontando à API de produção ou staging fixa.
 
 ## 5. Verificação
 
@@ -105,18 +122,37 @@ curl -X POST https://sua-api.onrender.com/api/v1/articles \
 curl "https://sua-api.onrender.com/api/v1/articles?q=teste+async"
 ```
 
+Checklist após configurar CI/CD:
+
+1. PR aberto → CI roda; Render cria preview (URL no PR do GitHub).
+2. Push em `main` com CI verde → job `deploy` dispara; Render inicia build.
+3. Push em `main` com CI falhando → job `deploy` não roda.
+4. Auto-deploy desligado no Render (produção só via hook).
+
+## Background Worker separado (alternativa opcional)
+
+Se preferir isolar o worker em outro processo (ex.: escalar ingestão separada da API), crie um **Background Worker** no mesmo repo:
+
+| Campo | Valor |
+|-------|-------|
+| Build Command | `yarn install && yarn build` |
+| Start Command | `yarn start:worker` |
+
+Nesse caso, defina `INDEX_WORKER_AUTOSTART=false` na API e configure `FRONTEND_REVALIDATE_URL`/`REVALIDATE_SECRET` também no worker. O padrão recomendado é worker embutido (um único Web Service).
+
 ## LocalStack vs Outbox
 
 | Ambiente | Fila de indexação |
 |----------|-------------------|
 | Dev (`docker compose`) | LocalStack SQS provisionado (simulação AWS, RNF06) — **sem driver no código** |
-| Render (prod) | Tabela `index_jobs` no PostgreSQL (Outbox) + Background Worker |
+| Render (prod) | Tabela `index_jobs` no PostgreSQL (Outbox) + worker embutido na API |
 
 ## Troubleshooting
 
 | Sintoma | Causa provável |
 |---------|----------------|
-| `202` mas artigo não aparece na busca | Worker parado ou `OPENSEARCH_*` incorreto no worker |
+| `202` mas artigo não aparece na busca | `INDEX_WORKER_AUTOSTART=false` ou `OPENSEARCH_*` incorreto |
 | Jobs `FAILED` em `index_jobs` | OpenSearch inacessível; ver `last_error` na tabela |
-| Frontend desatualizado após ingestão | `FRONTEND_REVALIDATE_URL`/`REVALIDATE_SECRET` ausentes no **worker** (modo async) |
-| API lenta na ingestão | `INDEXING_MODE=sync` por engano — usar `async` na API |
+| Frontend desatualizado após ingestão | `FRONTEND_REVALIDATE_URL`/`REVALIDATE_SECRET` ausentes na API |
+| API lenta na ingestão | `INDEXING_MODE=sync` por engano — usar `async` |
+| Deploy em produção sem CI verde | Auto-deploy ainda ativo no Render — desligar e usar hook |
