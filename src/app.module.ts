@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ArticlesModule } from './modules/articles/articles.module';
+import { IndexWorkerBootstrap } from './modules/articles/infrastructure/indexing/index-worker.bootstrap';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -15,6 +16,6 @@ import { PrismaModule } from './prisma/prisma.module';
     ArticlesModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, IndexWorkerBootstrap],
 })
 export class AppModule {}

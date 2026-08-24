@@ -20,6 +20,7 @@ import {
   getWorkerBatchSize,
   getWorkerMaxAttempts,
   getWorkerPollMs,
+  getWorkerStaleMs,
 } from '../../../../shared/config/indexing.config';
 
 @Injectable()
@@ -44,6 +45,15 @@ export class IndexWorkerService {
     }
 
     this.running = true;
+
+    const recovered = await this.indexJobs.recoverStaleJobs(
+      getWorkerStaleMs(this.config),
+    );
+
+    if (recovered > 0) {
+      this.logger.warn(`Recovered ${recovered} stale index job(s)`);
+    }
+
     this.logger.log('Index worker started');
 
     while (this.running) {

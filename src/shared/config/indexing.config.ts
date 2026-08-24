@@ -30,3 +30,11 @@ export function getWorkerBatchSize(config: ConfigService): number {
 export function getWorkerMaxAttempts(config: ConfigService): number {
   return parsePositiveInt(config, 'INDEX_WORKER_MAX_ATTEMPTS', 5);
 }
+
+export function getWorkerStaleMs(config: ConfigService): number {
+  return parsePositiveInt(config, 'INDEX_WORKER_STALE_MS', 60_000);
+}
+
+export function isWorkerAutostartEnabled(config: ConfigService): boolean {
+  return config.get<string>('INDEX_WORKER_AUTOSTART', 'true') === 'true';
+}

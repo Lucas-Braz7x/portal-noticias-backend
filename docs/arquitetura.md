@@ -256,12 +256,14 @@ POST (publicado) / PUT (mantém publicado) → ArticlesService → save(PG) → 
 PUT (despublica, publishedAt: null)      → ArticlesService → save(PG) → remove(OpenSearch) → revalidate
 ```
 
-**Async — Render (`INDEXING_MODE=async`):**
+**Async — produção ou dev com worker embutido (`INDEXING_MODE=async`):**
 
 ```
 POST/PUT → ArticlesService → save(PG) + enqueue(index_jobs) → HTTP 202
-IndexWorkerService → claim jobs → index/remove(OpenSearch) → revalidate frontend
+IndexWorkerService → recover stale jobs → claim jobs → index/remove(OpenSearch) → revalidate frontend
 ```
+
+Com `INDEX_WORKER_AUTOSTART=true` (default), a API sobe o worker embutido e drena jobs `PENDING` na subida. Jobs `PROCESSING` órfãos (crash do processo) voltam para `PENDING` após `INDEX_WORKER_STALE_MS`.
 
 Ação do job: `INDEX` quando artigo publicado; `REMOVE` ao despublicar (`publishedAt: null`). Claim com `FOR UPDATE SKIP LOCKED` para concorrência segura.
 

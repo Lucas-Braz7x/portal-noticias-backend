@@ -104,6 +104,7 @@ describe('ArticlesService', () => {
     indexJobsRepository = {
       enqueue: jest.fn(),
       claimNextBatch: jest.fn(),
+      recoverStaleJobs: jest.fn(),
       markCompleted: jest.fn(),
       markFailed: jest.fn(),
     };

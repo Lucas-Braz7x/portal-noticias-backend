@@ -36,6 +36,7 @@ describe('IndexWorkerService', () => {
     indexJobs = {
       enqueue: jest.fn(),
       claimNextBatch: jest.fn(),
+      recoverStaleJobs: jest.fn().mockResolvedValue(0),
       markCompleted: jest.fn(),
       markFailed: jest.fn(),
     };
@@ -72,6 +73,19 @@ describe('IndexWorkerService', () => {
       config,
       frontendCacheInvalidation,
     );
+  });
+
+  it('recovers stale jobs before processing on start', async () => {
+    indexJobs.recoverStaleJobs.mockResolvedValue(2);
+    indexJobs.claimNextBatch.mockResolvedValue([]);
+
+    const startPromise = worker.start();
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    worker.stop();
+    await startPromise;
+
+    expect(indexJobs.recoverStaleJobs).toHaveBeenCalledWith(60_000);
   });
 
   it('processes INDEX job and marks it completed', async () => {
